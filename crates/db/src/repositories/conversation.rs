@@ -2,12 +2,22 @@
 
 use common::models::{ChatMessage, Conversation};
 use common::{Error, Result};
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 /// Repository for conversation operations
 pub struct ConversationRepository {
     pool: PgPool,
+}
+
+// Internal row type for sqlx
+#[derive(Debug, FromRow)]
+struct ConversationRow {
+    id: Uuid,
+    messages: serde_json::Value,
+    agent_id: Option<String>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl ConversationRepository {
@@ -19,18 +29,18 @@ impl ConversationRepository {
     pub async fn create(&self, conversation: &Conversation) -> Result<Conversation> {
         let messages_json = serde_json::to_value(&conversation.messages)?;
 
-        let row = sqlx::query!(
+        let row: ConversationRow = sqlx::query_as(
             r#"
             INSERT INTO conversations (id, messages, agent_id, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, messages, agent_id, created_at, updated_at
             "#,
-            conversation.id,
-            messages_json,
-            conversation.agent_id,
-            conversation.created_at,
-            conversation.updated_at
         )
+        .bind(conversation.id)
+        .bind(&messages_json)
+        .bind(&conversation.agent_id)
+        .bind(conversation.created_at)
+        .bind(conversation.updated_at)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| Error::Database(e.to_string()))?;
@@ -48,14 +58,14 @@ impl ConversationRepository {
 
     /// Get a conversation by ID
     pub async fn get_by_id(&self, id: &Uuid) -> Result<Option<Conversation>> {
-        let row = sqlx::query!(
+        let row: Option<ConversationRow> = sqlx::query_as(
             r#"
             SELECT id, messages, agent_id, created_at, updated_at
             FROM conversations
             WHERE id = $1
             "#,
-            id
         )
+        .bind(id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(e.to_string()))?;
@@ -91,15 +101,15 @@ impl ConversationRepository {
     pub async fn update_messages(&self, id: &Uuid, messages: &[ChatMessage]) -> Result<()> {
         let messages_json = serde_json::to_value(messages)?;
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE conversations
             SET messages = $2, updated_at = NOW()
             WHERE id = $1
             "#,
-            id,
-            messages_json
         )
+        .bind(id)
+        .bind(&messages_json)
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(e.to_string()))?;

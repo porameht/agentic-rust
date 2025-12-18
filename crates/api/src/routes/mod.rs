@@ -3,6 +3,7 @@
 pub mod brochures;
 pub mod chat;
 pub mod documents;
+pub mod files;
 pub mod health;
 pub mod products;
 
@@ -41,6 +42,7 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/products/:id", put(products::update_product))
         .route("/products/:id", delete(products::delete_product))
         .route("/products/:id/index", post(products::index_product))
+        .route("/products/:id/images", post(files::upload_product_image))
 
         // Brochure/Download endpoints
         .route("/brochures", get(brochures::list_brochures))
@@ -50,6 +52,14 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/brochures/:id", delete(brochures::delete_brochure))
         .route("/brochures/:id/download", get(brochures::get_download_url))
         .route("/products/:product_id/brochures", get(brochures::get_product_brochures))
+
+        // File/Storage endpoints (RustFS)
+        .route("/files/brochures", post(files::upload_brochure))
+        .route("/files/:bucket", get(files::list_files))
+        .route("/files/:bucket/:key", get(files::get_file_info))
+        .route("/files/:bucket/:key", delete(files::delete_file))
+        .route("/files/:bucket/:key/download", get(files::get_download_url))
+        .route("/files/:bucket/upload-url", get(files::get_upload_url))
 
         // Document endpoints (Knowledge Base)
         .route("/documents", post(documents::create_document))

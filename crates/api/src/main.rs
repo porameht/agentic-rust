@@ -3,6 +3,7 @@
 use api::{create_router, AppState};
 use db::DbPool;
 use std::net::SocketAddr;
+use storage::{StorageClient, StorageConfig};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -12,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "api=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "api=debug,tower_http=debug,storage=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -36,8 +37,28 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_client = redis::Client::open(redis_url)?;
 
+    // Initialize Storage client (RustFS/MinIO/S3)
+    let storage_config = StorageConfig::from_env().unwrap_or_else(|_| {
+        StorageConfig::rustfs(
+            "http://localhost:9000",
+            "minioadmin",
+            "minioadmin",
+        )
+        .with_default_bucket("brochures")
+    });
+
+    let storage_client = StorageClient::new(storage_config);
+    info!("Storage client initialized");
+
+    // Create default buckets
+    for bucket in &["brochures", "products", "documents"] {
+        if let Err(e) = storage_client.create_bucket_if_not_exists(bucket).await {
+            tracing::warn!(bucket = bucket, error = %e, "Failed to create bucket (might already exist)");
+        }
+    }
+
     // Create application state
-    let state = AppState::new(db_pool, redis_client);
+    let state = AppState::new(db_pool, redis_client, storage_client);
 
     // Create router
     let app = create_router(state);

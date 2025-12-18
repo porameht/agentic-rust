@@ -7,6 +7,7 @@ members = [
     "crates/api",
     "crates/worker",
     "crates/db",
+    "crates/storage",
 ]
 
 [workspace.package]
@@ -22,6 +23,7 @@ common = { path = "crates/common" }
 rag-core = { path = "crates/rag-core" }
 agent = { path = "crates/agent" }
 db = { path = "crates/db" }
+storage = { path = "crates/storage" }
 
 # LLM & AI
 rig-core = "0.5"
@@ -33,7 +35,7 @@ futures = "0.3"
 async-trait = "0.1"
 
 # Web framework
-axum = { version = "0.8", features = ["macros"] }
+axum = { version = "0.8", features = ["macros", "multipart"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
 hyper = "1"
@@ -43,7 +45,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chro
 
 # Message queue
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
-apalis = { version = "0.6", features = ["redis"] }
+apalis = { version = "0.6" }
 apalis-redis = "0.6"
 
 # Vector database
