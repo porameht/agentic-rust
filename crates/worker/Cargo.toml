@@ -16,6 +16,7 @@ db = { workspace = true }
 
 tokio = { workspace = true }
 redis = { workspace = true }
+deadpool-redis = { workspace = true }
 apalis = { workspace = true }
 apalis-redis = { workspace = true }
 qdrant-client = { workspace = true }

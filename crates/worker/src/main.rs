@@ -1,12 +1,9 @@
-//! Worker service entry point.
-
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use worker::{JobConsumer, WorkerState};
+use worker::{consumer, JobConsumer, WorkerState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -15,34 +12,21 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Load environment variables
     dotenvy::dotenv().ok();
 
-    info!("Starting worker service...");
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".into());
+    let redis_pool = consumer::create_pool(&redis_url)?;
+    info!("Redis pool initialized");
 
-    // Initialize Redis client
-    let redis_url =
-        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
-
-    let redis_client = redis::Client::open(redis_url)?;
-
-    // Get concurrency from environment
     let concurrency: usize = std::env::var("WORKER_CONCURRENCY")
-        .unwrap_or_else(|_| "4".to_string())
+        .unwrap_or_else(|_| "4".into())
         .parse()
         .unwrap_or(4);
 
-    info!(concurrency = concurrency, "Worker configured");
-
-    // Create worker state
-    let state = WorkerState { redis_client };
-
-    // Create and start job consumer
+    let state = WorkerState { redis_pool };
     let consumer = JobConsumer::new(state, concurrency);
 
-    info!("Worker service started. Waiting for jobs...");
-
-    // Start consuming jobs (this blocks forever)
+    info!(concurrency, "worker started");
     consumer.start().await?;
 
     Ok(())

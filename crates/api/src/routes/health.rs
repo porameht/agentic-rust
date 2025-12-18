@@ -1,7 +1,6 @@
-//! Health check endpoints.
-
 use crate::state::AppState;
 use axum::{extract::State, http::StatusCode, Json};
+use deadpool_redis::redis::cmd;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -17,36 +16,33 @@ pub struct ReadinessResponse {
     pub redis: String,
 }
 
-/// Basic health check - always returns OK if server is running
 pub async fn health_check() -> Json<HealthResponse> {
     Json(HealthResponse {
-        status: "healthy".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        status: "healthy".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
     })
 }
 
-/// Readiness check - verifies all dependencies are available
-pub async fn readiness_check(
-    State(state): State<AppState>,
-) -> Result<Json<ReadinessResponse>, StatusCode> {
-    // Check database
+pub async fn readiness_check(State(state): State<AppState>) -> Result<Json<ReadinessResponse>, StatusCode> {
     let db_status = match state.db_pool.health_check().await {
         Ok(_) => "connected",
         Err(_) => "disconnected",
     };
 
-    // Check Redis
-    let redis_status = match state.redis_client.get_connection() {
-        Ok(_) => "connected",
+    let redis_status = match state.redis_pool.get().await {
+        Ok(mut conn) => {
+            let ping: Result<String, _> = cmd("PING").query_async(&mut *conn).await;
+            if ping.is_ok() { "connected" } else { "disconnected" }
+        }
         Err(_) => "disconnected",
     };
 
     let all_healthy = db_status == "connected" && redis_status == "connected";
 
     let response = ReadinessResponse {
-        status: if all_healthy { "ready" } else { "not_ready" }.to_string(),
-        database: db_status.to_string(),
-        redis: redis_status.to_string(),
+        status: if all_healthy { "ready" } else { "not_ready" }.into(),
+        database: db_status.into(),
+        redis: redis_status.into(),
     };
 
     if all_healthy {
