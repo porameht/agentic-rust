@@ -1,6 +1,8 @@
 //! Conversation repository using Diesel ORM.
 
-use crate::models::{Conversation as DbConversation, Message as DbMessage, NewConversation, NewMessage};
+use crate::models::{
+    Conversation as DbConversation, Message as DbMessage, NewConversation, NewMessage,
+};
 use crate::pool::DbPool;
 use crate::schema::{conversations, messages};
 use chrono::Utc;
@@ -54,7 +56,8 @@ impl ConversationRepository {
                 .map_err(|e| Error::Database(e.to_string()))?;
         }
 
-        self.get_with_messages(&row.id)?.ok_or_else(|| Error::Database("failed to create".into()))
+        self.get_with_messages(&row.id)?
+            .ok_or_else(|| Error::Database("failed to create".into()))
     }
 
     pub fn get(&self, id: &Uuid) -> Result<Option<DbConversation>> {

@@ -42,7 +42,10 @@ impl<E: EmbeddingModel, V: VectorStore> Retriever<E, V> {
         let query_embedding = self.embedding_model.embed(query).await?;
 
         // Search vector store
-        let results = self.vector_store.search(&query_embedding, self.top_k).await?;
+        let results = self
+            .vector_store
+            .search(&query_embedding, self.top_k)
+            .await?;
 
         // Filter by similarity threshold
         Ok(results

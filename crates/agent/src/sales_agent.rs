@@ -151,9 +151,7 @@ mod tests {
 
     #[test]
     fn test_custom_preamble() {
-        let (config, _) = SalesAgentBuilder::new()
-            .preamble("Custom preamble")
-            .build();
+        let (config, _) = SalesAgentBuilder::new().preamble("Custom preamble").build();
 
         assert_eq!(config.preamble, "Custom preamble");
     }

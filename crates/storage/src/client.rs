@@ -1,6 +1,8 @@
 use crate::config::StorageConfig;
 use crate::error::{StorageError, StorageResult};
-use crate::models::{ListObjectsResult, ObjectInfo, PresignedUrlOptions, UploadOptions, UploadResult};
+use crate::models::{
+    ListObjectsResult, ObjectInfo, PresignedUrlOptions, UploadOptions, UploadResult,
+};
 use s3::bucket::Bucket;
 use s3::creds::Credentials;
 use s3::region::Region;
@@ -94,10 +96,16 @@ impl StorageClient {
         let b = self.bucket(bucket)?;
 
         let key = opts.key.unwrap_or_else(|| {
-            format!("{}/{}", chrono::Utc::now().format("%Y/%m/%d"), uuid::Uuid::new_v4())
+            format!(
+                "{}/{}",
+                chrono::Utc::now().format("%Y/%m/%d"),
+                uuid::Uuid::new_v4()
+            )
         });
 
-        let content_type = opts.content_type.unwrap_or_else(|| "application/octet-stream".into());
+        let content_type = opts
+            .content_type
+            .unwrap_or_else(|| "application/octet-stream".into());
 
         let mut hasher = Sha256::new();
         hasher.update(data);
@@ -157,7 +165,10 @@ impl StorageClient {
                 ..opts
             }
         } else {
-            UploadOptions { content_type, ..opts }
+            UploadOptions {
+                content_type,
+                ..opts
+            }
         };
 
         self.upload_bytes(bucket, &data, opts).await
@@ -185,7 +196,9 @@ impl StorageClient {
         self.upload_bytes(
             bucket,
             &data,
-            UploadOptions::new().with_key(key).with_content_type(content_type),
+            UploadOptions::new()
+                .with_key(key)
+                .with_content_type(content_type),
         )
         .await
     }
@@ -204,20 +217,29 @@ impl StorageClient {
             })
     }
 
-    pub async fn download_file(&self, bucket: &str, key: &str, path: impl AsRef<Path>) -> StorageResult<()> {
+    pub async fn download_file(
+        &self,
+        bucket: &str,
+        key: &str,
+        path: impl AsRef<Path>,
+    ) -> StorageResult<()> {
         let data = self.download_bytes(bucket, key).await?;
         tokio::fs::write(path, data).await?;
         Ok(())
     }
 
     pub async fn object_info(&self, bucket: &str, key: &str) -> StorageResult<ObjectInfo> {
-        let (head, _) = self.bucket(bucket)?.head_object(key).await.map_err(|e| match &e {
-            s3::error::S3Error::HttpFailWithBody(404, _) => StorageError::NotFound {
-                bucket: bucket.into(),
-                key: key.into(),
-            },
-            _ => StorageError::S3(e.to_string()),
-        })?;
+        let (head, _) = self
+            .bucket(bucket)?
+            .head_object(key)
+            .await
+            .map_err(|e| match &e {
+                s3::error::S3Error::HttpFailWithBody(404, _) => StorageError::NotFound {
+                    bucket: bucket.into(),
+                    key: key.into(),
+                },
+                _ => StorageError::S3(e.to_string()),
+            })?;
 
         Ok(ObjectInfo {
             key: key.into(),
@@ -257,7 +279,12 @@ impl StorageClient {
         Ok(())
     }
 
-    pub async fn list(&self, bucket: &str, prefix: Option<&str>, max: Option<usize>) -> StorageResult<ListObjectsResult> {
+    pub async fn list(
+        &self,
+        bucket: &str,
+        prefix: Option<&str>,
+        max: Option<usize>,
+    ) -> StorageResult<ListObjectsResult> {
         let results = self
             .bucket(bucket)?
             .list(prefix.unwrap_or("").into(), None)
@@ -269,7 +296,7 @@ impl StorageClient {
 
         for result in results {
             for obj in result.contents {
-                if max.map_or(false, |m| objects.len() >= m) {
+                if max.is_some_and(|m| objects.len() >= m) {
                     break;
                 }
                 objects.push(ObjectInfo {
@@ -297,7 +324,12 @@ impl StorageClient {
         })
     }
 
-    pub async fn presigned_download(&self, bucket: &str, key: &str, opts: PresignedUrlOptions) -> StorageResult<String> {
+    pub async fn presigned_download(
+        &self,
+        bucket: &str,
+        key: &str,
+        opts: PresignedUrlOptions,
+    ) -> StorageResult<String> {
         self.bucket(bucket)?
             .presign_get(key, opts.expires_in, None)
             .await
@@ -329,7 +361,13 @@ impl StorageClient {
             })
     }
 
-    pub async fn copy(&self, src_bucket: &str, src_key: &str, dst_bucket: &str, dst_key: &str) -> StorageResult<()> {
+    pub async fn copy(
+        &self,
+        src_bucket: &str,
+        src_key: &str,
+        dst_bucket: &str,
+        dst_key: &str,
+    ) -> StorageResult<()> {
         self.bucket(dst_bucket)?
             .copy_object_internal(&format!("{}/{}", src_bucket, src_key), dst_key)
             .await

@@ -73,7 +73,10 @@ pub struct PresignedUrlOptions {
 
 impl PresignedUrlOptions {
     pub fn new(expires_in: u32) -> Self {
-        Self { expires_in, ..Default::default() }
+        Self {
+            expires_in,
+            ..Default::default()
+        }
     }
 
     pub fn with_download_filename(mut self, filename: impl Into<String>) -> Self {

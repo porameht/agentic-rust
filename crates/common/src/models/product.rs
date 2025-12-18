@@ -91,7 +91,11 @@ pub struct FaqItem {
 }
 
 impl Product {
-    pub fn new(name: impl Into<String>, description: impl Into<String>, category: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        category: impl Into<String>,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),

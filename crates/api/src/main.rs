@@ -45,7 +45,9 @@ async fn main() -> anyhow::Result<()> {
     let app = create_router(state);
 
     let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".into());
-    let port: u16 = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".into()).parse()?;
+    let port: u16 = std::env::var("SERVER_PORT")
+        .unwrap_or_else(|_| "8080".into())
+        .parse()?;
     let addr = SocketAddr::new(host.parse()?, port);
 
     info!("API server listening on {}", addr);

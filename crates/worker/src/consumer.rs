@@ -51,7 +51,11 @@ impl JobConsumer {
 }
 
 async fn conn(state: &WorkerState) -> Result<Connection> {
-    state.redis_pool.get().await.map_err(|e| Error::Queue(e.to_string()))
+    state
+        .redis_pool
+        .get()
+        .await
+        .map_err(|e| Error::Queue(e.to_string()))
 }
 
 async fn set_status(conn: &mut Connection, job_id: uuid::Uuid, status: &JobResult) -> Result<()> {
@@ -65,7 +69,10 @@ async fn process_next_job(state: &WorkerState) -> Result<()> {
     let mut c = conn(state).await?;
 
     let result: Option<(String, String)> = c
-        .brpop(&[queues::CHAT_QUEUE, queues::EMBED_QUEUE, queues::INDEX_QUEUE], 1.0)
+        .brpop(
+            &[queues::CHAT_QUEUE, queues::EMBED_QUEUE, queues::INDEX_QUEUE],
+            1.0,
+        )
         .await
         .map_err(|e| Error::Queue(e.to_string()))?;
 
@@ -90,25 +97,35 @@ async fn process_chat_job(state: &WorkerState, job: ProcessChatJob) -> Result<()
     tracing::info!(job_id = %job.job_id, "processing chat");
     let mut c = conn(state).await?;
 
-    set_status(&mut c, job.job_id, &JobResult {
-        job_id: job.job_id,
-        status: QueueJobStatus::Processing,
-        result: None,
-        error: None,
-        completed_at: None,
-    }).await?;
+    set_status(
+        &mut c,
+        job.job_id,
+        &JobResult {
+            job_id: job.job_id,
+            status: QueueJobStatus::Processing,
+            result: None,
+            error: None,
+            completed_at: None,
+        },
+    )
+    .await?;
 
     // TODO: RAG processing
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    set_status(&mut c, job.job_id, &JobResult::completed(
+    set_status(
+        &mut c,
         job.job_id,
-        serde_json::json!({
-            "response": format!("Processed: {}", job.message),
-            "conversation_id": job.conversation_id,
-            "sources": []
-        }),
-    )).await?;
+        &JobResult::completed(
+            job.job_id,
+            serde_json::json!({
+                "response": format!("Processed: {}", job.message),
+                "conversation_id": job.conversation_id,
+                "sources": []
+            }),
+        ),
+    )
+    .await?;
 
     tracing::info!(job_id = %job.job_id, "chat completed");
     Ok(())
@@ -119,10 +136,15 @@ async fn process_embed_job(state: &WorkerState, job: EmbedDocumentJob) -> Result
     let mut c = conn(state).await?;
 
     // TODO: embedding pipeline
-    set_status(&mut c, job.job_id, &JobResult::completed(
+    set_status(
+        &mut c,
         job.job_id,
-        serde_json::json!({ "document_id": job.document_id, "chunks_created": 0 }),
-    )).await?;
+        &JobResult::completed(
+            job.job_id,
+            serde_json::json!({ "document_id": job.document_id, "chunks_created": 0 }),
+        ),
+    )
+    .await?;
 
     tracing::info!(job_id = %job.job_id, "embed completed");
     Ok(())
@@ -133,10 +155,15 @@ async fn process_index_job(state: &WorkerState, job: IndexDocumentJob) -> Result
     let mut c = conn(state).await?;
 
     // TODO: indexing pipeline
-    set_status(&mut c, job.job_id, &JobResult::completed(
+    set_status(
+        &mut c,
         job.job_id,
-        serde_json::json!({ "document_id": job.document_id, "indexed": true }),
-    )).await?;
+        &JobResult::completed(
+            job.job_id,
+            serde_json::json!({ "document_id": job.document_id, "indexed": true }),
+        ),
+    )
+    .await?;
 
     tracing::info!(job_id = %job.job_id, "index completed");
     Ok(())

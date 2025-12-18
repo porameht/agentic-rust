@@ -23,7 +23,9 @@ pub async fn health_check() -> Json<HealthResponse> {
     })
 }
 
-pub async fn readiness_check(State(state): State<AppState>) -> Result<Json<ReadinessResponse>, StatusCode> {
+pub async fn readiness_check(
+    State(state): State<AppState>,
+) -> Result<Json<ReadinessResponse>, StatusCode> {
     let db_status = match state.db_pool.health_check() {
         Ok(_) => "connected",
         Err(_) => "disconnected",
@@ -32,7 +34,11 @@ pub async fn readiness_check(State(state): State<AppState>) -> Result<Json<Readi
     let redis_status = match state.redis_pool.get().await {
         Ok(mut conn) => {
             let ping: Result<String, _> = cmd("PING").query_async(&mut *conn).await;
-            if ping.is_ok() { "connected" } else { "disconnected" }
+            if ping.is_ok() {
+                "connected"
+            } else {
+                "disconnected"
+            }
         }
         Err(_) => "disconnected",
     };

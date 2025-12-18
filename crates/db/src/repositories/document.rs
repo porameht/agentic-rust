@@ -54,7 +54,13 @@ impl DocumentRepository {
             .map_err(|e| Error::Database(e.to_string()))
     }
 
-    pub fn update(&self, id: &Uuid, title: &str, content: &str, metadata: serde_json::Value) -> Result<Document> {
+    pub fn update(
+        &self,
+        id: &Uuid,
+        title: &str,
+        content: &str,
+        metadata: serde_json::Value,
+    ) -> Result<Document> {
         let mut conn = self.pool.conn()?;
         diesel::update(documents::table.find(id))
             .set((

@@ -53,7 +53,7 @@ pub struct JobStatusResponse {
 /// Synchronous chat handler
 /// Processes the chat request immediately and returns the response
 pub async fn chat_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Json(request): Json<ChatRequest>,
 ) -> Result<Json<ChatResponse>, StatusCode> {
     // TODO: Implement synchronous chat processing
@@ -87,14 +87,10 @@ pub async fn chat_async_handler(
     }
 
     // Push job to Redis queue
-    let job_id = state
-        .job_producer
-        .push_chat_job(&job)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to push chat job to queue");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let job_id = state.job_producer.push_chat_job(&job).await.map_err(|e| {
+        tracing::error!(error = %e, "Failed to push chat job to queue");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok(Json(AsyncChatResponse {
         job_id,

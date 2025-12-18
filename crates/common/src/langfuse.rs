@@ -54,7 +54,9 @@ fn build_cache_key(name: &str, language: Option<&str>, version: Option<i32>) -> 
         "{}:{}:{}",
         name,
         language.unwrap_or("default"),
-        version.map(|v| v.to_string()).unwrap_or_else(|| "latest".to_string())
+        version
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "latest".to_string())
     )
 }
 
@@ -147,7 +149,10 @@ impl LangfusePromptManager {
         if let Some(client) = &self.client {
             let prompt_name = build_prompt_name(name, language);
 
-            match self.fetch_from_langfuse(client, &prompt_name, version).await {
+            match self
+                .fetch_from_langfuse(client, &prompt_name, version)
+                .await
+            {
                 Ok(prompt) => {
                     let mut cache = self.cache.write().await;
                     cache.insert(cache_key, prompt.clone());

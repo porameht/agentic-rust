@@ -58,8 +58,8 @@ pub struct ProductRecommendationResponse {
 
 /// List/search products
 pub async fn list_products(
-    State(state): State<AppState>,
-    Query(query): Query<ProductSearchQuery>,
+    State(_state): State<AppState>,
+    Query(_query): Query<ProductSearchQuery>,
 ) -> Result<Json<Vec<ProductResponse>>, StatusCode> {
     // TODO: Implement product listing with filters
     // 1. Query database with filters
@@ -71,8 +71,8 @@ pub async fn list_products(
 
 /// Get product by ID
 pub async fn get_product(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
 ) -> Result<Json<ProductResponse>, StatusCode> {
     // TODO: Fetch product from database
     Err(StatusCode::NOT_FOUND)
@@ -80,8 +80,8 @@ pub async fn get_product(
 
 /// Create a new product
 pub async fn create_product(
-    State(state): State<AppState>,
-    Json(request): Json<CreateProductRequest>,
+    State(_state): State<AppState>,
+    Json(_request): Json<CreateProductRequest>,
 ) -> Result<Json<ProductResponse>, StatusCode> {
     // TODO: Create product in database
     // Queue indexing job for vector store
@@ -90,9 +90,9 @@ pub async fn create_product(
 
 /// Update product
 pub async fn update_product(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    Json(request): Json<CreateProductRequest>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
+    Json(_request): Json<CreateProductRequest>,
 ) -> Result<Json<ProductResponse>, StatusCode> {
     // TODO: Update product and re-index
     Err(StatusCode::NOT_IMPLEMENTED)
@@ -100,8 +100,8 @@ pub async fn update_product(
 
 /// Delete product
 pub async fn delete_product(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
     // TODO: Soft delete product, remove from vector store
     Err(StatusCode::NOT_IMPLEMENTED)
@@ -116,8 +116,8 @@ pub struct RecommendationRequest {
 }
 
 pub async fn get_recommendations(
-    State(state): State<AppState>,
-    Json(request): Json<RecommendationRequest>,
+    State(_state): State<AppState>,
+    Json(_request): Json<RecommendationRequest>,
 ) -> Result<Json<Vec<ProductRecommendationResponse>>, StatusCode> {
     // TODO: Implement semantic product search
     // 1. Generate embedding for query
@@ -129,7 +129,7 @@ pub async fn get_recommendations(
 
 /// Index product for vector search
 pub async fn index_product(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // TODO: Queue product indexing job

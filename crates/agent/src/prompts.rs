@@ -15,9 +15,7 @@ pub fn get_config() -> &'static PromptConfig {
 
 /// Get a template prompt by name
 pub fn get_template(name: &str) -> Option<String> {
-    get_config()
-        .get_template(name)
-        .map(|t| t.prompt.clone())
+    get_config().get_template(name).map(|t| t.prompt.clone())
 }
 
 /// Get agent prompt for a specific language
@@ -36,9 +34,7 @@ pub mod templates {
 
     /// Get template by name from config
     pub fn get(name: &str) -> Option<String> {
-        get_config()
-            .get_template(name)
-            .map(|t| t.prompt.clone())
+        get_config().get_template(name).map(|t| t.prompt.clone())
     }
 }
 
