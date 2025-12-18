@@ -27,6 +27,7 @@ storage = { path = "crates/storage" }
 
 # LLM & AI (latest: 0.23.1)
 rig-core = "0.23"
+langfuse-ergonomic = "0.6"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

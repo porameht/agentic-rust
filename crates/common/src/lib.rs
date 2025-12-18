@@ -2,11 +2,13 @@
 
 pub mod config;
 pub mod error;
+pub mod langfuse;
 pub mod models;
 pub mod prompt_config;
 pub mod queue;
 
 pub use config::AppConfig;
 pub use error::{Error, Result};
+pub use langfuse::LangfusePromptManager;
 pub use prompt_config::PromptConfig;
 pub use queue::{JobResult, QueueJobStatus};
