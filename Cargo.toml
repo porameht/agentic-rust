@@ -1,0 +1,82 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/common",
+    "crates/rag-core",
+    "crates/agent",
+    "crates/api",
+    "crates/worker",
+    "crates/db",
+    "crates/storage",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+authors = ["Agentic Team"]
+
+[workspace.dependencies]
+# Internal crates
+common = { path = "crates/common" }
+rag-core = { path = "crates/rag-core" }
+agent = { path = "crates/agent" }
+db = { path = "crates/db" }
+storage = { path = "crates/storage" }
+
+# LLM & AI (latest: 0.23.1)
+rig-core = "0.23"
+langfuse-ergonomic = "0.6"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# Web framework (latest: 0.8.6)
+axum = { version = "0.8", features = ["macros", "multipart"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+hyper = "1"
+
+# Database - Diesel ORM
+diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "r2d2", "numeric"] }
+diesel_migrations = "2.2"
+
+# Redis (latest stable: 0.27 -> 0.28 has breaking changes, stay on 0.27 for now)
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "aio"] }
+deadpool-redis = "0.18"
+
+# Job queue (latest: 0.7.1)
+apalis = "0.7"
+apalis-redis = "0.7"
+
+# Vector database (latest: 1.15.0)
+qdrant-client = "1.15"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Utils
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+bigdecimal = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+anyhow = "1"
+dotenvy = "0.15"
+config = "0.14"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

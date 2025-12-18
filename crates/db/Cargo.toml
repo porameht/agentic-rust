@@ -1,0 +1,18 @@
+[package]
+name = "db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+common = { workspace = true }
+diesel = { workspace = true }
+diesel_migrations = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+bigdecimal = { workspace = true }

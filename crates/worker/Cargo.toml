@@ -1,0 +1,33 @@
+[package]
+name = "worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "worker"
+path = "src/main.rs"
+
+[dependencies]
+common = { workspace = true }
+rag-core = { workspace = true }
+agent = { workspace = true }
+db = { workspace = true }
+
+tokio = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+apalis = { workspace = true }
+apalis-redis = { workspace = true }
+qdrant-client = { workspace = true }
+rig-core = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
