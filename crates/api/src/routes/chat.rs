@@ -38,7 +38,7 @@ pub struct DocumentSource {
 #[derive(Debug, Serialize)]
 pub struct AsyncChatResponse {
     pub job_id: Uuid,
-    pub message: String,
+    pub status: String,
 }
 
 /// Job status response
@@ -46,7 +46,7 @@ pub struct AsyncChatResponse {
 pub struct JobStatusResponse {
     pub job_id: Uuid,
     pub status: String,
-    pub result: Option<ChatResponse>,
+    pub result: Option<serde_json::Value>,
     pub error: Option<String>,
 }
 
@@ -77,15 +77,28 @@ pub async fn chat_async_handler(
     State(state): State<AppState>,
     Json(request): Json<ChatRequest>,
 ) -> Result<Json<AsyncChatResponse>, StatusCode> {
-    let job = ProcessChatJob::new(&request.message);
-    let job_id = job.job_id;
+    // Create job with optional conversation and agent
+    let mut job = ProcessChatJob::new(&request.message);
+    if let Some(conv_id) = request.conversation_id {
+        job = job.with_conversation(conv_id);
+    }
+    if let Some(agent_id) = request.agent_id {
+        job = job.with_agent(agent_id);
+    }
 
-    // TODO: Push job to Redis queue using apalis
-    // state.job_queue.push(job).await?;
+    // Push job to Redis queue
+    let job_id = state
+        .job_producer
+        .push_chat_job(&job)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to push chat job to queue");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     Ok(Json(AsyncChatResponse {
         job_id,
-        message: "Chat request queued for processing".to_string(),
+        status: "queued".to_string(),
     }))
 }
 
@@ -94,12 +107,23 @@ pub async fn get_job_status(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> Result<Json<JobStatusResponse>, StatusCode> {
-    // TODO: Fetch job status from Redis or database
+    // Fetch job status from Redis
+    let result = state
+        .job_producer
+        .get_job_status(&job_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to get job status");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    Ok(Json(JobStatusResponse {
-        job_id,
-        status: "pending".to_string(),
-        result: None,
-        error: None,
-    }))
+    match result {
+        Some(job_result) => Ok(Json(JobStatusResponse {
+            job_id: job_result.job_id,
+            status: format!("{:?}", job_result.status).to_lowercase(),
+            result: job_result.result,
+            error: job_result.error,
+        })),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }

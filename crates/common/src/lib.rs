@@ -3,6 +3,8 @@
 pub mod config;
 pub mod error;
 pub mod models;
+pub mod queue;
 
 pub use config::AppConfig;
 pub use error::{Error, Result};
+pub use queue::{JobResult, QueueJobStatus};
