@@ -1,6 +1,37 @@
 //! Prompt templates for agents.
+//!
+//! Prompts can be configured via:
+//! 1. TOML config file (config/prompts.toml)
+//! 2. Programmatic defaults (fallback)
+//!
+//! Use `PromptConfig::load()` from common crate to load configurable prompts.
 
-/// Default system prompts for different agent types
+use common::prompt_config::PromptConfig;
+use std::sync::OnceLock;
+
+/// Global prompt configuration (loaded once)
+static PROMPT_CONFIG: OnceLock<PromptConfig> = OnceLock::new();
+
+/// Get or initialize the prompt configuration
+pub fn get_config() -> &'static PromptConfig {
+    PROMPT_CONFIG.get_or_init(PromptConfig::load)
+}
+
+/// Get a template prompt by name
+pub fn get_template(name: &str) -> Option<String> {
+    get_config()
+        .get_template(name)
+        .map(|t| t.prompt.clone())
+}
+
+/// Get agent prompt for a specific language
+pub fn get_agent_prompt(agent: &str, language: &str) -> Option<String> {
+    get_config()
+        .get_agent_prompt(agent, language)
+        .map(|s| s.to_string())
+}
+
+/// Default system prompts for different agent types (fallback constants)
 pub mod templates {
     /// General-purpose assistant prompt
     pub const GENERAL_ASSISTANT: &str = r#"You are a helpful AI assistant. You provide accurate, helpful, and concise responses to user questions. When you don't know something, you say so honestly."#;
@@ -27,6 +58,17 @@ Always provide working code examples when appropriate."#;
 2. Quote relevant passages when appropriate
 3. If the answer isn't in the documents, clearly state that
 4. Summarize complex information clearly"#;
+
+    /// Get template by name (fallback to constants)
+    pub fn get(name: &str) -> Option<&'static str> {
+        match name {
+            "general_assistant" => Some(GENERAL_ASSISTANT),
+            "rag_assistant" => Some(RAG_ASSISTANT),
+            "code_assistant" => Some(CODE_ASSISTANT),
+            "document_qa" => Some(DOCUMENT_QA),
+            _ => None,
+        }
+    }
 }
 
 /// Prompt builder for constructing custom prompts
@@ -39,9 +81,26 @@ impl PromptBuilder {
         Self { parts: Vec::new() }
     }
 
+    /// Start with a template from config
+    pub fn from_template(template_name: &str) -> Self {
+        let mut builder = Self::new();
+        if let Some(prompt) = get_template(template_name) {
+            builder.parts.push(prompt);
+        } else if let Some(prompt) = templates::get(template_name) {
+            builder.parts.push(prompt.to_string());
+        }
+        builder
+    }
+
     /// Add a system instruction
     pub fn system(mut self, instruction: impl Into<String>) -> Self {
         self.parts.push(format!("System: {}", instruction.into()));
+        self
+    }
+
+    /// Add raw content without prefix
+    pub fn raw(mut self, content: impl Into<String>) -> Self {
+        self.parts.push(content.into());
         self
     }
 
@@ -89,5 +148,20 @@ mod tests {
         assert!(prompt.contains("You are a helpful assistant"));
         assert!(prompt.contains("Document 1 content"));
         assert!(prompt.contains("What is the answer?"));
+    }
+
+    #[test]
+    fn test_from_template() {
+        let prompt = PromptBuilder::from_template("general_assistant")
+            .query("Hello")
+            .build();
+
+        assert!(prompt.contains("helpful") || prompt.contains("assistant"));
+    }
+
+    #[test]
+    fn test_templates_get() {
+        assert!(templates::get("general_assistant").is_some());
+        assert!(templates::get("nonexistent").is_none());
     }
 }
