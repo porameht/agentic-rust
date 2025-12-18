@@ -78,20 +78,12 @@ diesel::table! {
         content -> Text,
         metadata -> Jsonb,
         created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    message_reactions (id) {
-        id -> Uuid,
-        message_id -> Uuid,
-        #[max_length = 255]
-        user_id -> Nullable<Varchar>,
         #[max_length = 20]
-        reaction_type -> Varchar,
-        feedback -> Nullable<Text>,
-        metadata -> Jsonb,
-        created_at -> Timestamptz,
+        reaction_type -> Nullable<Varchar>,
+        #[max_length = 255]
+        reaction_user_id -> Nullable<Varchar>,
+        reaction_feedback -> Nullable<Text>,
+        reacted_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -180,7 +172,6 @@ diesel::table! {
 
 diesel::joinable!(document_chunks -> documents (document_id));
 diesel::joinable!(messages -> conversations (conversation_id));
-diesel::joinable!(message_reactions -> messages (message_id));
 diesel::joinable!(product_brochures -> brochures (brochure_id));
 diesel::joinable!(product_brochures -> products (product_id));
 
@@ -193,7 +184,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     documents,
     faqs,
     jobs,
-    message_reactions,
     messages,
     product_brochures,
     products,

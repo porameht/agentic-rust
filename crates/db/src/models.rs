@@ -57,7 +57,7 @@ pub struct NewConversation {
 }
 
 // ============================================================================
-// Messages
+// Messages (with embedded reactions)
 // ============================================================================
 
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
@@ -70,6 +70,10 @@ pub struct Message {
     pub content: String,
     pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
+    pub reaction_type: Option<String>,
+    pub reaction_user_id: Option<String>,
+    pub reaction_feedback: Option<String>,
+    pub reacted_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -83,33 +87,13 @@ pub struct NewMessage<'a> {
     pub created_at: DateTime<Utc>,
 }
 
-// ============================================================================
-// Message Reactions
-// ============================================================================
-
-#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
-#[diesel(table_name = message_reactions)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MessageReaction {
-    pub id: Uuid,
-    pub message_id: Uuid,
-    pub user_id: Option<String>,
-    pub reaction_type: String,
-    pub feedback: Option<String>,
-    pub metadata: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = message_reactions)]
-pub struct NewMessageReaction<'a> {
-    pub id: Uuid,
-    pub message_id: Uuid,
-    pub user_id: Option<&'a str>,
-    pub reaction_type: &'a str,
-    pub feedback: Option<&'a str>,
-    pub metadata: serde_json::Value,
-    pub created_at: DateTime<Utc>,
+#[derive(Debug, Clone, AsChangeset)]
+#[diesel(table_name = messages)]
+pub struct MessageReactionUpdate<'a> {
+    pub reaction_type: Option<&'a str>,
+    pub reaction_user_id: Option<&'a str>,
+    pub reaction_feedback: Option<&'a str>,
+    pub reacted_at: Option<DateTime<Utc>>,
 }
 
 // ============================================================================
