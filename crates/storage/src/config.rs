@@ -80,8 +80,8 @@ impl StorageConfig {
     pub fn from_env() -> crate::StorageResult<Self> {
         Ok(Self {
             endpoint: std::env::var("STORAGE_ENDPOINT").unwrap_or_else(|_| "http://localhost:9000".into()),
-            access_key: std::env::var("STORAGE_ACCESS_KEY").unwrap_or_else(|_| "minioadmin".into()),
-            secret_key: std::env::var("STORAGE_SECRET_KEY").unwrap_or_else(|_| "minioadmin".into()),
+            access_key: std::env::var("STORAGE_ACCESS_KEY").unwrap_or_else(|_| "admin".into()),
+            secret_key: std::env::var("STORAGE_SECRET_KEY").unwrap_or_else(|_| "adminpassword".into()),
             region: std::env::var("STORAGE_REGION").unwrap_or_else(|_| default_region()),
             path_style: std::env::var("STORAGE_PATH_STYLE").map(|v| v == "true" || v == "1").unwrap_or(true),
             default_bucket: std::env::var("STORAGE_DEFAULT_BUCKET").ok(),

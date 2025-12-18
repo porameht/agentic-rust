@@ -48,22 +48,23 @@ services:
       timeout: 5s
       retries: 5
 
-  # S3-compatible Object Storage (MinIO - compatible with RustFS API)
-  # For production, consider RustFS: https://github.com/rustfs/rustfs
-  minio:
-    image: minio/minio:latest
-    container_name: agentic-minio
+  # S3-compatible Object Storage (RustFS)
+  # RustFS is a lightweight Rust-based S3-compatible file server
+  # For development, you can also use MinIO: docker pull minio/minio
+  rustfs:
+    image: ghcr.io/rustfs/rustfs:latest
+    container_name: agentic-rustfs
     ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # Console
+      - "9000:9000"   # S3 API
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      RUSTFS_ROOT_USER: admin
+      RUSTFS_ROOT_PASSWORD: adminpassword
+      RUSTFS_DATA_DIR: /data
+      RUSTFS_PORT: 9000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,4 +73,4 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
-  minio_data:
+  rustfs_data:
