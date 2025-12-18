@@ -1,20 +1,16 @@
 //! Prompt templates for agents.
 //!
-//! Prompts can be configured via:
-//! 1. TOML config file (config/prompts.toml)
-//! 2. Programmatic defaults (fallback)
-//!
-//! Use `PromptConfig::load()` from common crate to load configurable prompts.
+//! Prompts are loaded from `common::global_config()` singleton.
+//! Configure via config/prompts.toml or use programmatic defaults.
 
+use common::global_config;
 use common::prompt_config::PromptConfig;
-use std::sync::OnceLock;
 
-/// Global prompt configuration (loaded once)
-static PROMPT_CONFIG: OnceLock<PromptConfig> = OnceLock::new();
-
-/// Get or initialize the prompt configuration
+/// Get the global prompt configuration
+///
+/// Delegates to `common::global_config()` - the single source of truth.
 pub fn get_config() -> &'static PromptConfig {
-    PROMPT_CONFIG.get_or_init(PromptConfig::load)
+    global_config()
 }
 
 /// Get a template prompt by name
@@ -31,43 +27,18 @@ pub fn get_agent_prompt(agent: &str, language: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Default system prompts for different agent types (fallback constants)
+/// Template access module
+///
+/// Templates are now managed by `PromptConfig` in the common crate.
+/// This module provides backward-compatible access.
 pub mod templates {
-    /// General-purpose assistant prompt
-    pub const GENERAL_ASSISTANT: &str = r#"You are a helpful AI assistant. You provide accurate, helpful, and concise responses to user questions. When you don't know something, you say so honestly."#;
+    use super::get_config;
 
-    /// RAG-enabled assistant prompt
-    pub const RAG_ASSISTANT: &str = r#"You are a helpful AI assistant with access to a knowledge base. When answering questions:
-1. Use the provided context to inform your answers
-2. If the context doesn't contain relevant information, say so
-3. Cite your sources when possible
-4. Be accurate and concise"#;
-
-    /// Code assistant prompt
-    pub const CODE_ASSISTANT: &str = r#"You are an expert software engineer and coding assistant. You help users with:
-- Writing clean, efficient code
-- Debugging issues
-- Explaining complex concepts
-- Suggesting best practices
-
-Always provide working code examples when appropriate."#;
-
-    /// Document Q&A prompt
-    pub const DOCUMENT_QA: &str = r#"You are a document analysis assistant. Your job is to answer questions based on the provided documents. Guidelines:
-1. Only use information from the provided context
-2. Quote relevant passages when appropriate
-3. If the answer isn't in the documents, clearly state that
-4. Summarize complex information clearly"#;
-
-    /// Get template by name (fallback to constants)
-    pub fn get(name: &str) -> Option<&'static str> {
-        match name {
-            "general_assistant" => Some(GENERAL_ASSISTANT),
-            "rag_assistant" => Some(RAG_ASSISTANT),
-            "code_assistant" => Some(CODE_ASSISTANT),
-            "document_qa" => Some(DOCUMENT_QA),
-            _ => None,
-        }
+    /// Get template by name from config
+    pub fn get(name: &str) -> Option<String> {
+        get_config()
+            .get_template(name)
+            .map(|t| t.prompt.clone())
     }
 }
 
@@ -86,8 +57,6 @@ impl PromptBuilder {
         let mut builder = Self::new();
         if let Some(prompt) = get_template(template_name) {
             builder.parts.push(prompt);
-        } else if let Some(prompt) = templates::get(template_name) {
-            builder.parts.push(prompt.to_string());
         }
         builder
     }
@@ -161,7 +130,10 @@ mod tests {
 
     #[test]
     fn test_templates_get() {
-        assert!(templates::get("general_assistant").is_some());
+        // Templates are now loaded from config
+        let template = templates::get("general_assistant");
+        assert!(template.is_some());
+        assert!(template.unwrap().contains("helpful"));
         assert!(templates::get("nonexistent").is_none());
     }
 }

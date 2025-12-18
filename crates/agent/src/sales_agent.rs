@@ -6,24 +6,16 @@
 //! - Provide brochures and documents for download
 //! - Handle FAQ and policies
 //!
-//! Prompts are loaded from config/prompts.toml for easy customization.
+//! Prompts are loaded from `common::global_config()` singleton.
 
 use crate::tools::{self, Tool};
+use common::constants::{DEFAULT_MODEL, DEFAULT_TEMPERATURE, DEFAULT_TOP_K, SALES_AGENT_TOOLS};
+use common::global_config;
 use common::models::AgentConfig;
-use common::prompt_config::PromptConfig;
-use std::sync::OnceLock;
-
-/// Global prompt configuration (loaded once)
-static PROMPT_CONFIG: OnceLock<PromptConfig> = OnceLock::new();
-
-/// Get or initialize the prompt configuration
-fn get_prompt_config() -> &'static PromptConfig {
-    PROMPT_CONFIG.get_or_init(PromptConfig::load)
-}
 
 /// Create a sales agent configuration from config file
 pub fn create_sales_agent_config(language: &str) -> AgentConfig {
-    let config = get_prompt_config();
+    let config = global_config();
 
     // Get sales agent config
     if let Some(agent_config) = config.get_agent("sales") {
@@ -50,20 +42,16 @@ pub fn create_sales_agent_config(language: &str) -> AgentConfig {
             tools: agent_config.tools.clone(),
         }
     } else {
-        // Fallback to defaults if config not found
+        // Fallback to defaults using constants
         AgentConfig {
             id: "sales-agent".to_string(),
             name: "Sales Agent".to_string(),
             description: "AI assistant for sales support and product recommendations".to_string(),
-            model: "gpt-4".to_string(),
+            model: DEFAULT_MODEL.to_string(),
             preamble: "You are a helpful sales assistant.".to_string(),
-            temperature: 0.7,
-            top_k_documents: 5,
-            tools: vec![
-                "product_search".to_string(),
-                "get_brochure".to_string(),
-                "company_info".to_string(),
-            ],
+            temperature: DEFAULT_TEMPERATURE,
+            top_k_documents: DEFAULT_TOP_K,
+            tools: SALES_AGENT_TOOLS.iter().map(|s| s.to_string()).collect(),
         }
     }
 }

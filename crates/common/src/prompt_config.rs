@@ -1,12 +1,25 @@
 //! Prompt configuration management.
 //!
-//! Load prompts from TOML configuration files for flexible customization.
+//! Single source of truth for prompts - loaded from TOML config with defaults.
 
+use crate::constants::{DEFAULT_MODEL, DEFAULT_TEMPERATURE, DEFAULT_TOP_K, SALES_AGENT_TOOLS};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::OnceLock;
 
-/// Prompt template configuration
+/// Global prompt configuration singleton
+static GLOBAL_CONFIG: OnceLock<PromptConfig> = OnceLock::new();
+
+/// Get or initialize the global prompt configuration
+///
+/// This is the single source of truth for prompt configuration.
+/// Loaded once on first access, using TOML config file if available.
+pub fn global_config() -> &'static PromptConfig {
+    GLOBAL_CONFIG.get_or_init(PromptConfig::load)
+}
+
+/// Prompt template
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptTemplate {
     pub name: String,
@@ -15,7 +28,17 @@ pub struct PromptTemplate {
     pub prompt: String,
 }
 
-/// Agent configuration from prompts.toml
+impl PromptTemplate {
+    pub fn new(name: &str, prompt: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            description: None,
+            prompt: prompt.to_string(),
+        }
+    }
+}
+
+/// Agent prompt configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentPromptConfig {
     pub id: String,
@@ -34,7 +57,7 @@ pub struct AgentPromptConfig {
     pub prompts: HashMap<String, PromptTemplate>,
 }
 
-/// Root prompt configuration structure
+/// Root prompt configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptConfig {
     #[serde(default)]
@@ -44,15 +67,15 @@ pub struct PromptConfig {
 }
 
 fn default_model() -> String {
-    "gpt-4".to_string()
+    DEFAULT_MODEL.to_string()
 }
 
 fn default_temperature() -> f32 {
-    0.7
+    DEFAULT_TEMPERATURE
 }
 
 fn default_top_k() -> usize {
-    5
+    DEFAULT_TOP_K
 }
 
 impl Default for PromptConfig {
@@ -252,11 +275,7 @@ Respond in the same language the customer uses."#.to_string(),
             default_model: "gpt-4".to_string(),
             temperature: 0.7,
             top_k_documents: 5,
-            tools: vec![
-                "product_search".to_string(),
-                "get_brochure".to_string(),
-                "company_info".to_string(),
-            ],
+            tools: SALES_AGENT_TOOLS.iter().map(|s| s.to_string()).collect(),
             prompts: sales_prompts,
         },
     );

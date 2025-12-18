@@ -48,6 +48,23 @@ pub struct LangfusePromptManager {
     cache: Arc<RwLock<HashMap<String, CompiledPrompt>>>,
 }
 
+// Helper functions for cleaner code
+fn build_cache_key(name: &str, language: Option<&str>, version: Option<i32>) -> String {
+    format!(
+        "{}:{}:{}",
+        name,
+        language.unwrap_or("default"),
+        version.map(|v| v.to_string()).unwrap_or_else(|| "latest".to_string())
+    )
+}
+
+fn build_prompt_name(name: &str, language: Option<&str>) -> String {
+    match language {
+        Some(lang) => format!("{}-{}", name, lang),
+        None => name.to_string(),
+    }
+}
+
 impl LangfusePromptManager {
     /// Create a new prompt manager
     ///
@@ -116,15 +133,7 @@ impl LangfusePromptManager {
         language: Option<&str>,
         version: Option<i32>,
     ) -> crate::Result<CompiledPrompt> {
-        // Build cache key
-        let cache_key = format!(
-            "{}:{}:{}",
-            name,
-            language.unwrap_or("default"),
-            version
-                .map(|v| v.to_string())
-                .unwrap_or_else(|| "latest".to_string())
-        );
+        let cache_key = build_cache_key(name, language, version);
 
         // Check cache first
         {
@@ -136,18 +145,10 @@ impl LangfusePromptManager {
 
         // Try Langfuse
         if let Some(client) = &self.client {
-            let prompt_name = if let Some(lang) = language {
-                format!("{}-{}", name, lang)
-            } else {
-                name.to_string()
-            };
+            let prompt_name = build_prompt_name(name, language);
 
-            match self
-                .fetch_from_langfuse(client, &prompt_name, version)
-                .await
-            {
+            match self.fetch_from_langfuse(client, &prompt_name, version).await {
                 Ok(prompt) => {
-                    // Cache the result
                     let mut cache = self.cache.write().await;
                     cache.insert(cache_key, prompt.clone());
                     return Ok(prompt);
