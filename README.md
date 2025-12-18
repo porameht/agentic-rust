@@ -46,19 +46,20 @@ agentic-rust/
     ├── agent/              # LLM agent implementation with rig
     ├── api/                # REST API service (Axum)
     ├── worker/             # Background job processing (Apalis)
-    ├── db/                 # Database layer (SQLx + PostgreSQL)
+    ├── db/                 # Database layer (Diesel ORM + PostgreSQL)
     └── storage/            # S3-compatible object storage (RustFS)
 ```
 
 ## Technology Stack
 
-- **Language**: Rust
-- **Web Framework**: [Axum](https://github.com/tokio-rs/axum)
-- **LLM Framework**: [rig](https://rig.rs/) - Build powerful LLM applications in Rust
-- **Vector Database**: [Qdrant](https://qdrant.tech/)
-- **Database**: PostgreSQL with SQLx
-- **Job Queue**: [Apalis](https://github.com/geofmureithi/apalis) + Redis
-- **Object Storage**: RustFS (S3-compatible)
+- **Language**: Rust 1.75+
+- **Web Framework**: [Axum](https://github.com/tokio-rs/axum) 0.8
+- **LLM Framework**: [rig](https://rig.rs/) 0.23 - Build powerful LLM applications in Rust
+- **Vector Database**: [Qdrant](https://qdrant.tech/) 1.15
+- **Database**: PostgreSQL with [Diesel ORM](https://diesel.rs/) 2.2
+- **Job Queue**: [Apalis](https://github.com/geofmureithi/apalis) 0.7 + Redis
+- **Object Storage**: [RustFS](https://github.com/rustfs/rustfs) (S3-compatible)
+- **Prompt Management**: [Langfuse](https://langfuse.com/) (optional)
 - **Async Runtime**: Tokio
 
 ## Getting Started
@@ -93,9 +94,11 @@ agentic-rust/
 
 4. **Run database migrations**
    ```bash
-   cargo install sqlx-cli
-   sqlx migrate run
+   cargo install diesel_cli --no-default-features --features postgres
+   diesel migration run --migration-dir crates/db/migrations
    ```
+
+   Note: Migrations are also embedded and run automatically when the API/Worker starts.
 
 5. **Build the project**
    ```bash
@@ -128,6 +131,23 @@ cargo run --bin worker
 - `DELETE /api/v1/documents/:id` - Delete document
 - `POST /api/v1/documents/:id/index` - Index document for RAG
 - `POST /api/v1/documents/search` - Semantic search
+
+### Products
+- `POST /api/v1/products` - Create product
+- `GET /api/v1/products` - List products (with pagination)
+- `GET /api/v1/products/:id` - Get product by ID
+- `PUT /api/v1/products/:id` - Update product
+- `DELETE /api/v1/products/:id` - Delete product
+- `GET /api/v1/products/search?q=` - Search products
+
+### Brochures
+- `POST /api/v1/brochures` - Create brochure
+- `GET /api/v1/brochures` - List brochures
+- `GET /api/v1/brochures/:id` - Get brochure by ID
+- `PUT /api/v1/brochures/:id` - Update brochure
+- `DELETE /api/v1/brochures/:id` - Delete brochure
+- `POST /api/v1/products/:product_id/brochures/:brochure_id` - Link brochure to product
+- `DELETE /api/v1/products/:product_id/brochures/:brochure_id` - Unlink brochure
 
 ### Files (Storage)
 - `POST /api/v1/files/brochures` - Upload brochure file
@@ -195,9 +215,10 @@ Background job processing:
 
 ### `db`
 Database layer:
-- PostgreSQL connection pool
-- Repository pattern
-- SQLx migrations
+- PostgreSQL connection pool (r2d2)
+- Diesel ORM models and schema
+- Repository pattern for data access
+- Embedded migrations (auto-run on startup)
 
 ### `storage`
 S3-compatible object storage:
@@ -270,8 +291,12 @@ For production environments:
 
 2. **Database Migrations**
    ```bash
-   cargo install sqlx-cli
-   sqlx migrate run
+   # Option 1: Use diesel-cli
+   cargo install diesel_cli --no-default-features --features postgres
+   diesel migration run --migration-dir crates/db/migrations
+
+   # Option 2: Migrations run automatically on service startup
+   # Just start the API or Worker and migrations will be applied
    ```
 
 3. **Run Services**
@@ -358,3 +383,6 @@ MIT
 - [Qdrant Documentation](https://qdrant.tech/documentation/)
 - [Axum Documentation](https://docs.rs/axum)
 - [Apalis Documentation](https://docs.rs/apalis)
+- [Diesel ORM Documentation](https://diesel.rs/guides/)
+- [Langfuse Documentation](https://langfuse.com/docs)
+- [RustFS GitHub](https://github.com/rustfs/rustfs)

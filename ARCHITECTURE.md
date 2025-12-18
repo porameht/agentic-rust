@@ -7,45 +7,54 @@ This document outlines the architecture and implementation plan for building an 
 ## Technology Stack
 
 ### Core Technologies
-- **Language**: Rust (stable)
+- **Language**: Rust 1.75+ (stable)
 - **Async Runtime**: Tokio
-- **Web Framework**: Axum (ergonomic, modular, built on Tokio/Tower/Hyper)
-- **LLM Agent Framework**: [rig-core](https://github.com/0xPlaygrounds/rig) - Rust library for LLM applications
-- **Vector Database**: Qdrant (high-performance, written in Rust)
-- **Message Queue**: Redis (with `apalis` for job processing)
-- **Database**: PostgreSQL with `sqlx`
+- **Web Framework**: Axum 0.8 (ergonomic, modular, built on Tokio/Tower/Hyper)
+- **LLM Agent Framework**: [rig-core](https://github.com/0xPlaygrounds/rig) 0.23 - Rust library for LLM applications
+- **Vector Database**: Qdrant 1.15 (high-performance, written in Rust)
+- **Message Queue**: Redis 0.27 (with `apalis` 0.7 for job processing)
+- **Database**: PostgreSQL with Diesel ORM 2.2 (r2d2 connection pooling)
+- **Object Storage**: RustFS (S3-compatible)
+- **Prompt Management**: Langfuse (optional, for prompt version control)
 - **Serialization**: Serde
 
 ### Key Dependencies
 ```toml
 # LLM & AI
-rig-core = "0.5"              # LLM agent framework
-rig-qdrant = "0.5"            # Qdrant integration for rig
+rig-core = "0.23"             # LLM agent framework
+langfuse-ergonomic = "0.6"    # Prompt management
 
 # Web Framework
-axum = "0.8"
+axum = { version = "0.8", features = ["macros", "multipart"] }
 tower = "0.5"
-tower-http = "0.6"
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
 
 # Async Runtime
 tokio = { version = "1", features = ["full"] }
 
-# Database & Queue
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
-redis = "0.27"
-apalis = { version = "0.6", features = ["redis"] }
-qdrant-client = "1.12"
+# Database (Diesel ORM)
+diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "r2d2"] }
+diesel_migrations = "2.2"
+
+# Redis & Job Queue
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "aio"] }
+deadpool-redis = "0.18"
+apalis = "0.7"
+apalis-redis = "0.7"
+
+# Vector Database
+qdrant-client = "1.15"
 
 # Serialization & Utils
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
 
 # Observability
 tracing = "0.1"
-tracing-subscriber = "0.3"
-opentelemetry = "0.27"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 ```
 
 ---
@@ -130,20 +139,33 @@ agentic-rust/
 │   │       │   └── ai_processor.rs
 │   │       └── queue.rs          # Queue management
 │   │
-│   └── db/                       # Database layer
+│   ├── db/                       # Database layer (Diesel ORM)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── pool.rs           # Connection pool (r2d2)
+│   │       ├── models.rs         # Diesel ORM models
+│   │       ├── schema.rs         # Auto-generated schema
+│   │       ├── repositories/     # Data access layer
+│   │       │   ├── mod.rs
+│   │       │   ├── document.rs
+│   │       │   ├── conversation.rs
+│   │       │   ├── message.rs
+│   │       │   └── job.rs
+│   │       └── migrations/       # Diesel migrations
+│   │
+│   └── storage/                  # S3-compatible object storage
 │       ├── Cargo.toml
 │       └── src/
 │           ├── lib.rs
-│           ├── pool.rs           # Connection pool
-│           ├── repositories/     # Data access
-│           │   ├── mod.rs
-│           │   ├── document.rs
-│           │   ├── conversation.rs
-│           │   └── job.rs
-│           └── migrations/       # SQL migrations
+│           ├── client.rs         # RustFS/S3 client
+│           ├── config.rs         # Storage configuration
+│           ├── models.rs         # Storage models
+│           ├── error.rs          # Storage errors
+│           └── presigned.rs      # Presigned URLs
 │
-├── migrations/                   # SQLx migrations
-│   └── 20241218_initial.sql
+├── config/
+│   └── prompts.toml              # Prompt configuration (Langfuse)
 │
 └── tests/                        # Integration tests
     ├── api_tests.rs
@@ -163,30 +185,29 @@ agentic-rust/
                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           API SERVICE (Axum)                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   /chat     │  │  /documents │  │   /agents   │  │   /health   │    │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────────────┘    │
-│         │                │                │                              │
-│         ▼                ▼                ▼                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │  /chat   │ │/documents│ │/products │ │  /files  │ │   /health    │  │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └──────────────┘  │
+│       │            │            │            │                          │
+│       ▼            ▼            ▼            ▼                          │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
 │  │                    Application State                              │  │
-│  │  • DB Pool  • Redis Client  • Agent Registry  • Qdrant Client    │  │
+│  │  • DB Pool  • Redis  • Qdrant  • Storage Client  • Agent Reg.    │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────┬───────────────────────────────────────┘
                                   │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-              ▼                   ▼                   ▼
-┌─────────────────────┐ ┌─────────────────┐ ┌─────────────────────────────┐
-│    PostgreSQL       │ │   Redis Queue   │ │      Qdrant Vector DB       │
-│  ┌───────────────┐  │ │  ┌───────────┐  │ │  ┌─────────────────────┐   │
-│  │ conversations │  │ │  │ job_queue │  │ │  │ document_embeddings │   │
-│  │ documents     │  │ │  │ results   │  │ │  │ chunk_embeddings    │   │
-│  │ jobs          │  │ │  └───────────┘  │ │  └─────────────────────┘   │
-│  └───────────────┘  │ └────────┬────────┘ └─────────────────────────────┘
-└─────────────────────┘          │
-                                 │
-                                 ▼
+       ┌──────────────────────────┼──────────────────────────┐
+       │                │                │                   │
+       ▼                ▼                ▼                   ▼
+┌────────────┐ ┌─────────────┐ ┌─────────────────┐ ┌─────────────────────┐
+│ PostgreSQL │ │ Redis Queue │ │ Qdrant Vector   │ │ RustFS (S3)         │
+│  ┌───────┐ │ │ ┌─────────┐ │ │ ┌─────────────┐ │ │ ┌─────────────────┐ │
+│  │tables │ │ │ │job_queue│ │ │ │ embeddings  │ │ │ │ brochures/files │ │
+│  │ +11   │ │ │ │results  │ │ │ │ vectors     │ │ │ │ presigned URLs  │ │
+│  └───────┘ │ │ └─────────┘ │ │ └─────────────┘ │ │ └─────────────────┘ │
+└────────────┘ └──────┬──────┘ └─────────────────┘ └─────────────────────┘
+                      │
+                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        WORKER SERVICE (Apalis)                           │
 │  ┌────────────────────────────────────────────────────────────────────┐ │
@@ -578,7 +599,7 @@ concurrency = 4
 # .env.example
 
 # Database
-DATABASE_URL=postgres://user:pass@localhost:5432/agentic
+DATABASE_URL=postgres://agentic:agentic@localhost:5432/agentic
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -587,16 +608,37 @@ REDIS_URL=redis://localhost:6379
 QDRANT_URL=http://localhost:6333
 
 # LLM Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-COHERE_API_KEY=...
+OPENAI_API_KEY=sk-your-openai-key
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
+COHERE_API_KEY=your-cohere-key
+
+# Langfuse Prompt Management (optional)
+LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
 
 # Server
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
+# Worker
+WORKER_CONCURRENCY=4
+
+# RAG Configuration
+RAG_CHUNK_SIZE=1000
+RAG_CHUNK_OVERLAP=200
+RAG_TOP_K=5
+
+# Object Storage (S3-compatible: RustFS)
+STORAGE_ENDPOINT=http://localhost:9000
+STORAGE_ACCESS_KEY=admin
+STORAGE_SECRET_KEY=adminpassword
+STORAGE_REGION=us-east-1
+STORAGE_PATH_STYLE=true
+STORAGE_DEFAULT_BUCKET=brochures
+
 # Logging
-RUST_LOG=info,agentic=debug
+RUST_LOG=info,api=debug,worker=debug
 ```
 
 ---
@@ -610,6 +652,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: agentic-postgres
     environment:
       POSTGRES_USER: agentic
       POSTGRES_PASSWORD: agentic
@@ -618,26 +661,64 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentic"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
+    container_name: agentic-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   qdrant:
     image: qdrant/qdrant:latest
+    container_name: agentic-qdrant
     ports:
       - "6333:6333"
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # S3-compatible Object Storage (RustFS)
+  rustfs:
+    image: ghcr.io/rustfs/rustfs:latest
+    container_name: agentic-rustfs
+    ports:
+      - "9000:9000"
+    volumes:
+      - rustfs_data:/data
+    environment:
+      RUSTFS_ROOT_USER: admin
+      RUSTFS_ROOT_PASSWORD: adminpassword
+      RUSTFS_DATA_DIR: /data
+      RUSTFS_PORT: 9000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  rustfs_data:
 ```
 
 ---
@@ -672,6 +753,20 @@ volumes:
 - Excellent performance
 - Good community support
 
+### 5. Why RustFS for Object Storage?
+- Lightweight S3-compatible file server
+- Written in Rust (consistent ecosystem)
+- Simple deployment and configuration
+- Can be replaced with MinIO or AWS S3 in production
+- Supports presigned URLs for secure file access
+
+### 6. Why Diesel ORM?
+- Compile-time type safety for SQL queries
+- Strong Rust type system integration
+- Automatic migrations with version control
+- r2d2 connection pooling for performance
+- Well-maintained with excellent documentation
+
 ---
 
 ## Sources & References
@@ -684,4 +779,8 @@ volumes:
 - [Qdrant Vector Database](https://qdrant.tech/)
 - [Apalis - Background Job Processing](https://docs.rs/apalis/latest/apalis/)
 - [Axum Web Framework](https://docs.rs/axum/latest/axum/)
+- [Diesel ORM](https://diesel.rs/)
+- [Diesel Getting Started Guide](https://diesel.rs/guides/getting-started)
+- [RustFS - S3-compatible Object Storage](https://github.com/rustfs/rustfs)
+- [Langfuse - Prompt Management](https://langfuse.com/docs)
 - [Rust Microservices Monorepo](https://github.com/jayden-dang/rust-microservices-monorepo)
