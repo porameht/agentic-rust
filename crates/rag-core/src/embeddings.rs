@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use common::models::{DocumentChunk, EmbeddedChunk};
-use common::{Error, Result};
+use common::Result;
 
 /// Trait for embedding models
 #[async_trait]

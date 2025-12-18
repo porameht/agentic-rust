@@ -83,7 +83,7 @@ pub async fn get_document(
 ) -> Result<Json<DocumentResponse>, StatusCode> {
     let repo = DocumentRepository::new(state.db_pool.inner().clone());
 
-    match repo.get_by_id(&id).await {
+    match repo.get(&id).await {
         Ok(Some(doc)) => Ok(Json(DocumentResponse {
             id: doc.id,
             title: doc.title,

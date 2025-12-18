@@ -1,18 +1,14 @@
-//! Document repository for storing and retrieving documents.
-
 use common::models::Document;
 use common::{Error, Result};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-/// Repository for document operations
 pub struct DocumentRepository {
     pool: PgPool,
 }
 
-// Internal row type for sqlx
 #[derive(Debug, FromRow)]
-struct DocumentRow {
+struct Row {
     id: Uuid,
     title: String,
     content: String,
@@ -21,15 +17,15 @@ struct DocumentRow {
     updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-impl From<DocumentRow> for Document {
-    fn from(row: DocumentRow) -> Self {
-        Document {
-            id: row.id,
-            title: row.title,
-            content: row.content,
-            metadata: row.metadata,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
+impl From<Row> for Document {
+    fn from(r: Row) -> Self {
+        Self {
+            id: r.id,
+            title: r.title,
+            content: r.content,
+            metadata: r.metadata,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
         }
     }
 }
@@ -39,77 +35,53 @@ impl DocumentRepository {
         Self { pool }
     }
 
-    /// Create a new document
-    pub async fn create(&self, document: &Document) -> Result<Document> {
-        let row: DocumentRow = sqlx::query_as(
-            r#"
-            INSERT INTO documents (id, title, content, metadata, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, title, content, metadata, created_at, updated_at
-            "#,
+    pub async fn create(&self, doc: &Document) -> Result<Document> {
+        sqlx::query_as::<_, Row>(
+            "INSERT INTO documents (id, title, content, metadata, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, title, content, metadata, created_at, updated_at",
         )
-        .bind(document.id)
-        .bind(&document.title)
-        .bind(&document.content)
-        .bind(&document.metadata)
-        .bind(document.created_at)
-        .bind(document.updated_at)
+        .bind(doc.id)
+        .bind(&doc.title)
+        .bind(&doc.content)
+        .bind(&doc.metadata)
+        .bind(doc.created_at)
+        .bind(doc.updated_at)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
-
-        Ok(row.into())
+        .map(Into::into)
+        .map_err(|e| Error::Database(e.to_string()))
     }
 
-    /// Get a document by ID
-    pub async fn get_by_id(&self, id: &Uuid) -> Result<Option<Document>> {
-        let row: Option<DocumentRow> = sqlx::query_as(
-            r#"
-            SELECT id, title, content, metadata, created_at, updated_at
-            FROM documents
-            WHERE id = $1
-            "#,
+    pub async fn get(&self, id: &Uuid) -> Result<Option<Document>> {
+        sqlx::query_as::<_, Row>(
+            "SELECT id, title, content, metadata, created_at, updated_at FROM documents WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
-
-        Ok(row.map(Into::into))
+        .map(|r| r.map(Into::into))
+        .map_err(|e| Error::Database(e.to_string()))
     }
 
-    /// List all documents
     pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Document>> {
-        let rows: Vec<DocumentRow> = sqlx::query_as(
-            r#"
-            SELECT id, title, content, metadata, created_at, updated_at
-            FROM documents
-            ORDER BY created_at DESC
-            LIMIT $1 OFFSET $2
-            "#,
+        sqlx::query_as::<_, Row>(
+            "SELECT id, title, content, metadata, created_at, updated_at FROM documents ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
         .bind(limit)
         .bind(offset)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
-
-        Ok(rows.into_iter().map(Into::into).collect())
+        .map(|rows| rows.into_iter().map(Into::into).collect())
+        .map_err(|e| Error::Database(e.to_string()))
     }
 
-    /// Delete a document
     pub async fn delete(&self, id: &Uuid) -> Result<bool> {
-        let result = sqlx::query(
-            r#"
-            DELETE FROM documents
-            WHERE id = $1
-            "#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| Error::Database(e.to_string()))?;
-
-        Ok(result.rows_affected() > 0)
+        sqlx::query("DELETE FROM documents WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map(|r| r.rows_affected() > 0)
+            .map_err(|e| Error::Database(e.to_string()))
     }
 }

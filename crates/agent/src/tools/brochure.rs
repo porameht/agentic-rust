@@ -82,7 +82,7 @@ impl Tool for BrochureTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
-        let params: BrochureSearchParams = serde_json::from_value(args)?;
+        let _params: BrochureSearchParams = serde_json::from_value(args)?;
 
         // TODO: Implement actual brochure search
         // 1. Query brochure database

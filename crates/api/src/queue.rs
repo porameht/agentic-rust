@@ -3,7 +3,7 @@
 //! This module handles pushing jobs to Redis queue for worker consumption.
 
 use common::models::{EmbedDocumentJob, IndexDocumentJob, ProcessChatJob};
-use common::queue::{keys, queues, JobResult, QueueJobStatus, RESULT_TTL_SECONDS};
+use common::queue::{keys, queues, JobResult, RESULT_TTL_SECONDS};
 use common::{Error, Result};
 use redis::AsyncCommands;
 use uuid::Uuid;

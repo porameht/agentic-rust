@@ -4,7 +4,7 @@ pub mod ai_processor;
 
 use crate::jobs::{EmbedDocumentJob, IndexDocumentJob, ProcessChatJob};
 use common::Result;
-use tracing::{error, info};
+use tracing::info;
 
 /// Process a chat job
 pub async fn process_chat_job(job: ProcessChatJob) -> Result<String> {

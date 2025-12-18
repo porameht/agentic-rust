@@ -1,7 +1,7 @@
 //! RAG-enabled agent implementation.
 
-use common::models::{AgentConfig, ChatMessage, MessageRole, SearchResult};
-use common::{Error, Result};
+use common::models::{AgentConfig, SearchResult};
+use common::Result;
 use rag_core::embeddings::EmbeddingModel;
 use rag_core::vector_store::VectorStore;
 use rag_core::Retriever;
