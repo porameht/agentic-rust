@@ -20,7 +20,6 @@ deadpool-redis = { workspace = true }
 apalis = { workspace = true }
 apalis-redis = { workspace = true }
 qdrant-client = { workspace = true }
-sqlx = { workspace = true }
 rig-core = { workspace = true }
 
 serde = { workspace = true }

@@ -1,107 +1,107 @@
+//! Job repository using Diesel ORM.
+
+use crate::models::{Job as DbJob, NewJob};
+use crate::pool::DbPool;
+use crate::schema::jobs;
+use chrono::Utc;
 use common::models::{Job, JobStatus};
 use common::{Error, Result};
-use sqlx::{FromRow, PgPool};
+use diesel::prelude::*;
 use uuid::Uuid;
 
 pub struct JobRepository {
-    pool: PgPool,
-}
-
-#[derive(Debug, FromRow)]
-struct Row {
-    id: Uuid,
-    job_type: String,
-    payload: serde_json::Value,
-    status: String,
-    result: Option<serde_json::Value>,
-    error: Option<String>,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-impl Row {
-    fn into_job(self) -> Result<Job> {
-        Ok(Job {
-            id: self.id,
-            job_type: self.job_type,
-            payload: self.payload,
-            status: serde_json::from_str(&self.status)?,
-            result: self.result,
-            error: self.error,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        })
-    }
+    pool: DbPool,
 }
 
 impl JobRepository {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
-    pub async fn create(&self, job: &Job) -> Result<Job> {
-        sqlx::query_as::<_, Row>(
-            "INSERT INTO jobs (id, job_type, payload, status, result, error, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING id, job_type, payload, status, result, error, created_at, updated_at",
-        )
-        .bind(job.id)
-        .bind(&job.job_type)
-        .bind(&job.payload)
-        .bind(serde_json::to_string(&job.status)?)
-        .bind(&job.result)
-        .bind(&job.error)
-        .bind(job.created_at)
-        .bind(job.updated_at)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| Error::Database(e.to_string()))?
-        .into_job()
+    pub fn create(&self, job: &Job) -> Result<Job> {
+        let mut conn = self.pool.conn()?;
+        let new_job = NewJob {
+            id: job.id,
+            job_type: &job.job_type,
+            payload: job.payload.clone(),
+            status: &serde_json::to_string(&job.status)?,
+            result: job.result.clone(),
+            error: job.error.as_deref(),
+            created_at: job.created_at,
+            updated_at: job.updated_at,
+        };
+
+        let row: DbJob = diesel::insert_into(jobs::table)
+            .values(&new_job)
+            .returning(DbJob::as_returning())
+            .get_result(&mut conn)
+            .map_err(|e| Error::Database(e.to_string()))?;
+
+        Self::row_to_job(row)
     }
 
-    pub async fn get(&self, id: &Uuid) -> Result<Option<Job>> {
-        match sqlx::query_as::<_, Row>(
-            "SELECT id, job_type, payload, status, result, error, created_at, updated_at FROM jobs WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| Error::Database(e.to_string()))?
-        {
-            Some(row) => Ok(Some(row.into_job()?)),
+    pub fn get(&self, id: &Uuid) -> Result<Option<Job>> {
+        let mut conn = self.pool.conn()?;
+        let row: Option<DbJob> = jobs::table
+            .find(id)
+            .first(&mut conn)
+            .optional()
+            .map_err(|e| Error::Database(e.to_string()))?;
+
+        match row {
+            Some(r) => Ok(Some(Self::row_to_job(r)?)),
             None => Ok(None),
         }
     }
 
-    pub async fn update_status(&self, id: &Uuid, status: JobStatus) -> Result<()> {
-        sqlx::query("UPDATE jobs SET status = $2, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .bind(serde_json::to_string(&status)?)
-            .execute(&self.pool)
-            .await
+    pub fn update_status(&self, id: &Uuid, status: JobStatus) -> Result<()> {
+        let mut conn = self.pool.conn()?;
+        diesel::update(jobs::table.find(id))
+            .set((
+                jobs::status.eq(serde_json::to_string(&status)?),
+                jobs::updated_at.eq(Utc::now()),
+            ))
+            .execute(&mut conn)
             .map_err(|e| Error::Database(e.to_string()))?;
         Ok(())
     }
 
-    pub async fn complete(&self, id: &Uuid, result: serde_json::Value) -> Result<()> {
-        sqlx::query("UPDATE jobs SET status = $2, result = $3, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .bind(serde_json::to_string(&JobStatus::Completed)?)
-            .bind(&result)
-            .execute(&self.pool)
-            .await
+    pub fn complete(&self, id: &Uuid, result: serde_json::Value) -> Result<()> {
+        let mut conn = self.pool.conn()?;
+        diesel::update(jobs::table.find(id))
+            .set((
+                jobs::status.eq(serde_json::to_string(&JobStatus::Completed)?),
+                jobs::result.eq(Some(result)),
+                jobs::updated_at.eq(Utc::now()),
+            ))
+            .execute(&mut conn)
             .map_err(|e| Error::Database(e.to_string()))?;
         Ok(())
     }
 
-    pub async fn fail(&self, id: &Uuid, error: &str) -> Result<()> {
-        sqlx::query("UPDATE jobs SET status = $2, error = $3, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .bind(serde_json::to_string(&JobStatus::Failed)?)
-            .bind(error)
-            .execute(&self.pool)
-            .await
+    pub fn fail(&self, id: &Uuid, error: &str) -> Result<()> {
+        let mut conn = self.pool.conn()?;
+        diesel::update(jobs::table.find(id))
+            .set((
+                jobs::status.eq(serde_json::to_string(&JobStatus::Failed)?),
+                jobs::error.eq(Some(error)),
+                jobs::updated_at.eq(Utc::now()),
+            ))
+            .execute(&mut conn)
             .map_err(|e| Error::Database(e.to_string()))?;
         Ok(())
+    }
+
+    fn row_to_job(row: DbJob) -> Result<Job> {
+        Ok(Job {
+            id: row.id,
+            job_type: row.job_type,
+            payload: row.payload,
+            status: serde_json::from_str(&row.status)?,
+            result: row.result,
+            error: row.error,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
     }
 }

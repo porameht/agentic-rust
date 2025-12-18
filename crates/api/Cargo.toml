@@ -26,7 +26,6 @@ bytes = "1"
 redis = { workspace = true }
 deadpool-redis = { workspace = true }
 qdrant-client = { workspace = true }
-sqlx = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

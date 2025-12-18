@@ -19,10 +19,10 @@ async fn main() -> anyhow::Result<()> {
 
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://agentic:agentic@localhost:5432/agentic".into());
-    let db_pool = DbPool::new(&database_url, 10).await?;
+    let db_pool = DbPool::new(&database_url, 10)?;
 
     info!("Running migrations...");
-    db_pool.run_migrations().await?;
+    db_pool.run_migrations()?;
 
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".into());
     let redis_pool = queue::create_pool(&redis_url)?;

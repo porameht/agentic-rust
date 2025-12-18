@@ -1,0 +1,10 @@
+DROP TRIGGER IF EXISTS update_agents_updated_at ON agents;
+DROP TRIGGER IF EXISTS update_jobs_updated_at ON jobs;
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
+DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
+DROP FUNCTION IF EXISTS update_updated_at_column();
+DROP TABLE IF EXISTS agents;
+DROP TABLE IF EXISTS document_chunks;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS conversations;
+DROP TABLE IF EXISTS documents;

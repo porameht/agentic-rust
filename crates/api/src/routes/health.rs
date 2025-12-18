@@ -24,7 +24,7 @@ pub async fn health_check() -> Json<HealthResponse> {
 }
 
 pub async fn readiness_check(State(state): State<AppState>) -> Result<Json<ReadinessResponse>, StatusCode> {
-    let db_status = match state.db_pool.health_check().await {
+    let db_status = match state.db_pool.health_check() {
         Ok(_) => "connected",
         Err(_) => "disconnected",
     };

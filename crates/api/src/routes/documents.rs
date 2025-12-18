@@ -11,7 +11,6 @@ use db::repositories::DocumentRepository;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Create document request
 #[derive(Debug, Deserialize)]
 pub struct CreateDocumentRequest {
     pub title: String,
@@ -19,7 +18,6 @@ pub struct CreateDocumentRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Document response
 #[derive(Debug, Serialize)]
 pub struct DocumentResponse {
     pub id: Uuid,
@@ -30,21 +28,18 @@ pub struct DocumentResponse {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// List documents query parameters
 #[derive(Debug, Deserialize)]
 pub struct ListDocumentsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
 
-/// Search documents request
 #[derive(Debug, Deserialize)]
 pub struct SearchDocumentsRequest {
     pub query: String,
     pub limit: Option<usize>,
 }
 
-/// Search result response
 #[derive(Debug, Serialize)]
 pub struct SearchResultResponse {
     pub document_id: Uuid,
@@ -53,7 +48,6 @@ pub struct SearchResultResponse {
     pub score: f32,
 }
 
-/// Create a new document
 pub async fn create_document(
     State(state): State<AppState>,
     Json(request): Json<CreateDocumentRequest>,
@@ -61,9 +55,9 @@ pub async fn create_document(
     let document = Document::new(&request.title, &request.content)
         .with_metadata(request.metadata.unwrap_or_default());
 
-    let repo = DocumentRepository::new(state.db_pool.inner().clone());
+    let repo = DocumentRepository::new(state.db_pool.clone());
 
-    match repo.create(&document).await {
+    match repo.create(&document) {
         Ok(doc) => Ok(Json(DocumentResponse {
             id: doc.id,
             title: doc.title,
@@ -76,14 +70,13 @@ pub async fn create_document(
     }
 }
 
-/// Get a document by ID
 pub async fn get_document(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<DocumentResponse>, StatusCode> {
-    let repo = DocumentRepository::new(state.db_pool.inner().clone());
+    let repo = DocumentRepository::new(state.db_pool.clone());
 
-    match repo.get(&id).await {
+    match repo.get(&id) {
         Ok(Some(doc)) => Ok(Json(DocumentResponse {
             id: doc.id,
             title: doc.title,
@@ -97,16 +90,15 @@ pub async fn get_document(
     }
 }
 
-/// List all documents
 pub async fn list_documents(
     State(state): State<AppState>,
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Json<Vec<DocumentResponse>>, StatusCode> {
-    let repo = DocumentRepository::new(state.db_pool.inner().clone());
+    let repo = DocumentRepository::new(state.db_pool.clone());
     let limit = query.limit.unwrap_or(10);
     let offset = query.offset.unwrap_or(0);
 
-    match repo.list(limit, offset).await {
+    match repo.list(limit, offset) {
         Ok(docs) => Ok(Json(
             docs.into_iter()
                 .map(|doc| DocumentResponse {
@@ -123,47 +115,32 @@ pub async fn list_documents(
     }
 }
 
-/// Delete a document
 pub async fn delete_document(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
-    let repo = DocumentRepository::new(state.db_pool.inner().clone());
+    let repo = DocumentRepository::new(state.db_pool.clone());
 
-    match repo.delete(&id).await {
+    match repo.delete(&id) {
         Ok(true) => Ok(StatusCode::NO_CONTENT),
         Ok(false) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
-/// Index a document for RAG (creates embeddings)
 pub async fn index_document(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // TODO: Create EmbedDocumentJob and push to queue
-    // This will:
-    // 1. Fetch the document
-    // 2. Chunk the content
-    // 3. Generate embeddings
-    // 4. Store in vector database
-
     Ok(Json(serde_json::json!({
         "message": "Document indexing queued",
         "document_id": id
     })))
 }
 
-/// Search documents using semantic search
 pub async fn search_documents(
-    State(state): State<AppState>,
-    Json(request): Json<SearchDocumentsRequest>,
+    State(_state): State<AppState>,
+    Json(_request): Json<SearchDocumentsRequest>,
 ) -> Result<Json<Vec<SearchResultResponse>>, StatusCode> {
-    // TODO: Implement semantic search
-    // 1. Generate embedding for query
-    // 2. Search vector database
-    // 3. Return results with relevance scores
-
     Ok(Json(vec![]))
 }
