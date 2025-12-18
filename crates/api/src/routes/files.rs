@@ -65,25 +65,41 @@ pub async fn upload_brochure(
         .map_err(|_| StatusCode::BAD_REQUEST)?
         .ok_or(StatusCode::BAD_REQUEST)?;
 
-    let filename = field.file_name().map(String::from).unwrap_or_else(|| "file".into());
-    let content_type = field
-        .content_type()
+    let filename = field
+        .file_name()
         .map(String::from)
-        .unwrap_or_else(|| mime_guess::from_path(&filename).first().map(|m| m.to_string()).unwrap_or_else(|| "application/octet-stream".into()));
+        .unwrap_or_else(|| "file".into());
+    let content_type = field.content_type().map(String::from).unwrap_or_else(|| {
+        mime_guess::from_path(&filename)
+            .first()
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| "application/octet-stream".into())
+    });
 
     let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
 
     let storage = &state.storage_client;
     let bucket = "brochures";
 
-    storage.create_bucket_if_not_exists(bucket).await.map_err(|e| {
-        tracing::error!(error = %e, "bucket creation failed");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    storage
+        .create_bucket_if_not_exists(bucket)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "bucket creation failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     let file_id = Uuid::new_v4();
-    let ext = std::path::Path::new(&filename).extension().and_then(|e| e.to_str()).unwrap_or("");
-    let key = format!("brochures/{}/{}.{}", chrono::Utc::now().format("%Y/%m"), file_id, ext);
+    let ext = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    let key = format!(
+        "brochures/{}/{}.{}",
+        chrono::Utc::now().format("%Y/%m"),
+        file_id,
+        ext
+    );
 
     let opts = UploadOptions::new()
         .with_key(&key)
@@ -91,10 +107,13 @@ pub async fn upload_brochure(
         .with_metadata("original_filename", &filename)
         .with_download_filename(&filename);
 
-    let result = storage.upload_bytes(bucket, &data, opts).await.map_err(|e| {
-        tracing::error!(error = %e, "upload failed");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let result = storage
+        .upload_bytes(bucket, &data, opts)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "upload failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     Ok(Json(FileUploadResponse {
         id: file_id,
@@ -119,8 +138,14 @@ pub async fn upload_product_image(
         .map_err(|_| StatusCode::BAD_REQUEST)?
         .ok_or(StatusCode::BAD_REQUEST)?;
 
-    let filename = field.file_name().map(String::from).unwrap_or_else(|| "image".into());
-    let content_type = field.content_type().map(String::from).unwrap_or_else(|| "image/jpeg".into());
+    let filename = field
+        .file_name()
+        .map(String::from)
+        .unwrap_or_else(|| "image".into());
+    let content_type = field
+        .content_type()
+        .map(String::from)
+        .unwrap_or_else(|| "image/jpeg".into());
 
     if !content_type.starts_with("image/") {
         return Err(StatusCode::BAD_REQUEST);
@@ -131,18 +156,30 @@ pub async fn upload_product_image(
     let storage = &state.storage_client;
     let bucket = "products";
 
-    storage.create_bucket_if_not_exists(bucket).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    storage
+        .create_bucket_if_not_exists(bucket)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let file_id = Uuid::new_v4();
-    let ext = std::path::Path::new(&filename).extension().and_then(|e| e.to_str()).unwrap_or("jpg");
+    let ext = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
     let key = format!("products/{}/{}.{}", product_id, file_id, ext);
 
-    let opts = UploadOptions::new().with_key(&key).with_content_type(&content_type).public();
+    let opts = UploadOptions::new()
+        .with_key(&key)
+        .with_content_type(&content_type)
+        .public();
 
-    let result = storage.upload_bytes(bucket, &data, opts).await.map_err(|e| {
-        tracing::error!(error = %e, "upload failed");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let result = storage
+        .upload_bytes(bucket, &data, opts)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "upload failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     Ok(Json(FileUploadResponse {
         id: file_id,
@@ -193,7 +230,13 @@ pub async fn get_upload_url(
         .and_then(|e| e.to_str())
         .unwrap_or("bin");
 
-    let key = format!("{}/{}/{}.{}", bucket, chrono::Utc::now().format("%Y/%m"), file_id, ext);
+    let key = format!(
+        "{}/{}/{}.{}",
+        bucket,
+        chrono::Utc::now().format("%Y/%m"),
+        file_id,
+        ext
+    );
 
     let url = state
         .storage_client
@@ -215,13 +258,17 @@ pub async fn get_file_info(
     State(state): State<AppState>,
     Path((bucket, key)): Path<(String, String)>,
 ) -> Result<Json<FileInfoResponse>, StatusCode> {
-    let info = state.storage_client.object_info(&bucket, &key).await.map_err(|e| match e {
-        storage::StorageError::NotFound { .. } => StatusCode::NOT_FOUND,
-        _ => {
-            tracing::error!(error = %e, "get info failed");
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    })?;
+    let info = state
+        .storage_client
+        .object_info(&bucket, &key)
+        .await
+        .map_err(|e| match e {
+            storage::StorageError::NotFound { .. } => StatusCode::NOT_FOUND,
+            _ => {
+                tracing::error!(error = %e, "get info failed");
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
 
     Ok(Json(FileInfoResponse {
         key: info.key,
@@ -236,10 +283,14 @@ pub async fn delete_file(
     State(state): State<AppState>,
     Path((bucket, key)): Path<(String, String)>,
 ) -> Result<StatusCode, StatusCode> {
-    state.storage_client.delete(&bucket, &key).await.map_err(|e| {
-        tracing::error!(error = %e, "delete failed");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    state
+        .storage_client
+        .delete(&bucket, &key)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "delete failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
     Ok(StatusCode::NO_CONTENT)
 }
 

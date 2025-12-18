@@ -43,7 +43,9 @@ impl Tool for ProductSearchTool {
     fn definition(&self) -> ToolDefinition {
         ToolDefinition {
             name: "product_search".to_string(),
-            description: "ค้นหาและแนะนำสินค้าตามความต้องการของลูกค้า สามารถค้นหาจากชื่อ, คุณสมบัติ, หมวดหมู่ หรือช่วงราคา".to_string(),
+            description:
+                "ค้นหาและแนะนำสินค้าตามความต้องการของลูกค้า สามารถค้นหาจากชื่อ, คุณสมบัติ, หมวดหมู่ หรือช่วงราคา"
+                    .to_string(),
             parameters: serde_json::json!({
                 "type": "object",
                 "properties": {

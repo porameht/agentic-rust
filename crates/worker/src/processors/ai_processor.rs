@@ -24,7 +24,7 @@ impl<E: EmbeddingModel, V: VectorStore> AiProcessor<E, V> {
     /// Process and index a document
     pub async fn index_document(
         &self,
-        document_id: uuid::Uuid,
+        _document_id: uuid::Uuid,
         content: &str,
         metadata: serde_json::Value,
     ) -> Result<usize> {

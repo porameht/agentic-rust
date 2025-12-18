@@ -8,7 +8,7 @@ pub mod health;
 pub mod products;
 
 use crate::state::AppState;
-use axum::{routing::get, routing::post, routing::put, routing::delete, Router};
+use axum::{routing::delete, routing::get, routing::post, routing::put, Router};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
@@ -33,7 +33,6 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/chat", post(chat::chat_handler))
         .route("/chat/async", post(chat::chat_async_handler))
         .route("/chat/jobs/:job_id", get(chat::get_job_status))
-
         // Product endpoints
         .route("/products", get(products::list_products))
         .route("/products", post(products::create_product))
@@ -43,7 +42,6 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/products/:id", delete(products::delete_product))
         .route("/products/:id/index", post(products::index_product))
         .route("/products/:id/images", post(files::upload_product_image))
-
         // Brochure/Download endpoints
         .route("/brochures", get(brochures::list_brochures))
         .route("/brochures", post(brochures::create_brochure))
@@ -51,8 +49,10 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/brochures/:id", put(brochures::update_brochure))
         .route("/brochures/:id", delete(brochures::delete_brochure))
         .route("/brochures/:id/download", get(brochures::get_download_url))
-        .route("/products/:product_id/brochures", get(brochures::get_product_brochures))
-
+        .route(
+            "/products/:product_id/brochures",
+            get(brochures::get_product_brochures),
+        )
         // File/Storage endpoints (RustFS)
         .route("/files/brochures", post(files::upload_brochure))
         .route("/files/:bucket", get(files::list_files))
@@ -60,7 +60,6 @@ fn api_v1_routes() -> Router<AppState> {
         .route("/files/:bucket/:key", delete(files::delete_file))
         .route("/files/:bucket/:key/download", get(files::get_download_url))
         .route("/files/:bucket/upload-url", get(files::get_upload_url))
-
         // Document endpoints (Knowledge Base)
         .route("/documents", post(documents::create_document))
         .route("/documents", get(documents::list_documents))

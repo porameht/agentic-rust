@@ -55,7 +55,7 @@ impl<E: EmbeddingModel, V: VectorStore> RagAgent<E, V> {
                     result.chunk.content
                 ));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Add the user query
@@ -94,8 +94,5 @@ pub struct ChatResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use rag_core::vector_store::InMemoryVectorStore;
-
     // Tests would go here with mock embedding model
 }

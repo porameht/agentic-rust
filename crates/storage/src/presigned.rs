@@ -42,7 +42,9 @@ impl StorageClient {
         expires_in: u32,
     ) -> StorageResult<PresignedUrl> {
         Ok(PresignedUrl {
-            url: self.presigned_upload(bucket, key, expires_in, content_type).await?,
+            url: self
+                .presigned_upload(bucket, key, expires_in, content_type)
+                .await?,
             expires_in,
             bucket: bucket.into(),
             key: key.into(),
@@ -61,7 +63,11 @@ pub struct PresignedUrlBuilder<'a> {
 }
 
 impl<'a> PresignedUrlBuilder<'a> {
-    pub fn new(client: &'a StorageClient, bucket: impl Into<String>, key: impl Into<String>) -> Self {
+    pub fn new(
+        client: &'a StorageClient,
+        bucket: impl Into<String>,
+        key: impl Into<String>,
+    ) -> Self {
         Self {
             client,
             bucket: bucket.into(),
@@ -95,7 +101,10 @@ impl<'a> PresignedUrlBuilder<'a> {
         };
 
         Ok(PresignedUrl {
-            url: self.client.presigned_download(&self.bucket, &self.key, opts).await?,
+            url: self
+                .client
+                .presigned_download(&self.bucket, &self.key, opts)
+                .await?,
             expires_in: self.expires_in,
             bucket: self.bucket,
             key: self.key,
@@ -107,7 +116,12 @@ impl<'a> PresignedUrlBuilder<'a> {
         Ok(PresignedUrl {
             url: self
                 .client
-                .presigned_upload(&self.bucket, &self.key, self.expires_in, self.content_type.as_deref())
+                .presigned_upload(
+                    &self.bucket,
+                    &self.key,
+                    self.expires_in,
+                    self.content_type.as_deref(),
+                )
                 .await?,
             expires_in: self.expires_in,
             bucket: self.bucket,

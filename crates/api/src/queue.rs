@@ -23,7 +23,10 @@ impl JobProducer {
     }
 
     async fn conn(&self) -> Result<deadpool_redis::Connection> {
-        self.pool.get().await.map_err(|e| Error::Queue(e.to_string()))
+        self.pool
+            .get()
+            .await
+            .map_err(|e| Error::Queue(e.to_string()))
     }
 
     async fn push_job(&self, queue: &str, job_id: Uuid, payload: &str) -> Result<Uuid> {
@@ -43,15 +46,26 @@ impl JobProducer {
     }
 
     pub async fn push_chat_job(&self, job: &ProcessChatJob) -> Result<Uuid> {
-        self.push_job(queues::CHAT_QUEUE, job.job_id, &serde_json::to_string(job)?).await
+        self.push_job(queues::CHAT_QUEUE, job.job_id, &serde_json::to_string(job)?)
+            .await
     }
 
     pub async fn push_embed_job(&self, job: &EmbedDocumentJob) -> Result<Uuid> {
-        self.push_job(queues::EMBED_QUEUE, job.job_id, &serde_json::to_string(job)?).await
+        self.push_job(
+            queues::EMBED_QUEUE,
+            job.job_id,
+            &serde_json::to_string(job)?,
+        )
+        .await
     }
 
     pub async fn push_index_job(&self, job: &IndexDocumentJob) -> Result<Uuid> {
-        self.push_job(queues::INDEX_QUEUE, job.job_id, &serde_json::to_string(job)?).await
+        self.push_job(
+            queues::INDEX_QUEUE,
+            job.job_id,
+            &serde_json::to_string(job)?,
+        )
+        .await
     }
 
     pub async fn get_job_status(&self, job_id: &Uuid) -> Result<Option<JobResult>> {

@@ -1,11 +1,6 @@
 //! Authentication middleware.
 
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 
 /// Simple API key authentication middleware
 pub async fn api_key_auth(request: Request, next: Next) -> Result<Response, StatusCode> {

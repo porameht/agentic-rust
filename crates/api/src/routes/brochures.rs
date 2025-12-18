@@ -56,8 +56,8 @@ pub struct BrochureSearchQuery {
 
 /// List/search brochures
 pub async fn list_brochures(
-    State(state): State<AppState>,
-    Query(query): Query<BrochureSearchQuery>,
+    State(_state): State<AppState>,
+    Query(_query): Query<BrochureSearchQuery>,
 ) -> Result<Json<Vec<BrochureResponse>>, StatusCode> {
     // TODO: Implement brochure listing with filters
     // 1. Query database with filters
@@ -69,8 +69,8 @@ pub async fn list_brochures(
 
 /// Get brochure by ID
 pub async fn get_brochure(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
 ) -> Result<Json<BrochureResponse>, StatusCode> {
     // TODO: Fetch brochure and generate download URL
     Err(StatusCode::NOT_FOUND)
@@ -78,8 +78,8 @@ pub async fn get_brochure(
 
 /// Create a new brochure
 pub async fn create_brochure(
-    State(state): State<AppState>,
-    Json(request): Json<CreateBrochureRequest>,
+    State(_state): State<AppState>,
+    Json(_request): Json<CreateBrochureRequest>,
 ) -> Result<Json<BrochureResponse>, StatusCode> {
     // TODO: Create brochure record
     // In production: upload file to storage, create record
@@ -88,9 +88,9 @@ pub async fn create_brochure(
 
 /// Update brochure
 pub async fn update_brochure(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    Json(request): Json<CreateBrochureRequest>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
+    Json(_request): Json<CreateBrochureRequest>,
 ) -> Result<Json<BrochureResponse>, StatusCode> {
     // TODO: Update brochure metadata
     Err(StatusCode::NOT_IMPLEMENTED)
@@ -98,8 +98,8 @@ pub async fn update_brochure(
 
 /// Delete brochure
 pub async fn delete_brochure(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
     // TODO: Delete brochure and associated file
     Err(StatusCode::NOT_IMPLEMENTED)
@@ -107,8 +107,8 @@ pub async fn delete_brochure(
 
 /// Get download URL for brochure
 pub async fn get_download_url(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_id): Path<Uuid>,
 ) -> Result<Json<DownloadUrlResponse>, StatusCode> {
     // TODO: Generate presigned download URL
     // Increment download count
@@ -125,8 +125,8 @@ pub struct DownloadUrlResponse {
 
 /// Get brochures for a specific product
 pub async fn get_product_brochures(
-    State(state): State<AppState>,
-    Path(product_id): Path<Uuid>,
+    State(_state): State<AppState>,
+    Path(_product_id): Path<Uuid>,
 ) -> Result<Json<Vec<BrochureResponse>>, StatusCode> {
     // TODO: Get all brochures associated with a product
 

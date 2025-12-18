@@ -9,6 +9,9 @@ use common::{Error, Result};
 use diesel::prelude::*;
 use uuid::Uuid;
 
+/// Reaction info tuple: (reaction_type, user_id, feedback)
+pub type ReactionInfo = (String, Option<String>, Option<String>);
+
 pub struct MessageRepository {
     pool: DbPool,
 }
@@ -103,10 +106,12 @@ impl MessageRepository {
     }
 
     /// Get reaction for a message (if any)
-    pub fn get_reaction(&self, message_id: &Uuid) -> Result<Option<(String, Option<String>, Option<String>)>> {
+    pub fn get_reaction(&self, message_id: &Uuid) -> Result<Option<ReactionInfo>> {
         let msg = self.get(message_id)?;
         match msg {
-            Some(m) => Ok(m.reaction_type.map(|rt| (rt, m.reaction_user_id, m.reaction_feedback))),
+            Some(m) => Ok(m
+                .reaction_type
+                .map(|rt| (rt, m.reaction_user_id, m.reaction_feedback))),
             None => Ok(None),
         }
     }

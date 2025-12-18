@@ -29,9 +29,7 @@ impl DbPool {
     }
 
     pub fn conn(&self) -> Result<PgConn> {
-        self.pool
-            .get()
-            .map_err(|e| Error::Database(e.to_string()))
+        self.pool.get().map_err(|e| Error::Database(e.to_string()))
     }
 
     pub fn inner(&self) -> &PgPool {

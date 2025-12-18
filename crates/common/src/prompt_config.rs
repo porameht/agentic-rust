@@ -92,11 +92,11 @@ impl PromptConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> crate::Result<Self> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| crate::Error::Config(format!("Failed to read prompt config: {}", e)))?;
-        Self::from_str(&content)
+        Self::parse_toml(&content)
     }
 
     /// Load prompt configuration from a TOML string
-    pub fn from_str(content: &str) -> crate::Result<Self> {
+    pub fn parse_toml(content: &str) -> crate::Result<Self> {
         toml::from_str(content)
             .map_err(|e| crate::Error::Config(format!("Failed to parse prompt config: {}", e)))
     }
@@ -177,13 +177,15 @@ fn default_templates() -> HashMap<String, PromptTemplate> {
         PromptTemplate {
             name: "Code Assistant".to_string(),
             description: Some("Expert software engineer and coding assistant".to_string()),
-            prompt: r#"You are an expert software engineer and coding assistant. You help users with:
+            prompt:
+                r#"You are an expert software engineer and coding assistant. You help users with:
 - Writing clean, efficient code
 - Debugging issues
 - Explaining complex concepts
 - Suggesting best practices
 
-Always provide working code examples when appropriate."#.to_string(),
+Always provide working code examples when appropriate."#
+                    .to_string(),
         },
     );
 
@@ -234,7 +236,8 @@ fn default_agents() -> HashMap<String, AgentPromptConfig> {
 - `get_brochure`: หาเอกสาร/โบรชัวร์ให้ดาวน์โหลด
 - `company_info`: ค้นหาข้อมูลบริษัท FAQ นโยบาย
 
-ตอบเป็นภาษาไทย เว้นแต่ลูกค้าจะใช้ภาษาอื่น"#.to_string(),
+ตอบเป็นภาษาไทย เว้นแต่ลูกค้าจะใช้ภาษาอื่น"#
+                .to_string(),
         },
     );
     sales_prompts.insert(
@@ -271,7 +274,9 @@ Respond in the same language the customer uses."#.to_string(),
         AgentPromptConfig {
             id: "sales-agent".to_string(),
             name: "Sales Agent".to_string(),
-            description: Some("AI assistant for sales support and product recommendations".to_string()),
+            description: Some(
+                "AI assistant for sales support and product recommendations".to_string(),
+            ),
             default_model: "gpt-4".to_string(),
             temperature: 0.7,
             top_k_documents: 5,
@@ -321,7 +326,7 @@ name = "Default"
 prompt = "Default prompt"
 "#;
 
-        let config = PromptConfig::from_str(toml_str).unwrap();
+        let config = PromptConfig::parse_toml(toml_str).unwrap();
         assert!(config.templates.contains_key("test"));
         assert!(config.agents.contains_key("test"));
         assert_eq!(config.agents["test"].temperature, 0.5);

@@ -38,7 +38,7 @@ impl TextChunker {
 
         let mut chunks = Vec::new();
         let sentences: Vec<&str> = text
-            .split(|c| c == '.' || c == '!' || c == '?')
+            .split(['.', '!', '?'])
             .filter(|s| !s.trim().is_empty())
             .collect();
 
@@ -52,17 +52,17 @@ impl TextChunker {
 
             let sentence_with_period = format!("{}. ", sentence);
 
-            if current_chunk.len() + sentence_with_period.len() > self.chunk_size {
-                if !current_chunk.is_empty() {
-                    chunks.push(current_chunk.trim().to_string());
+            if current_chunk.len() + sentence_with_period.len() > self.chunk_size
+                && !current_chunk.is_empty()
+            {
+                chunks.push(current_chunk.trim().to_string());
 
-                    // Handle overlap by keeping last part of current chunk
-                    if self.chunk_overlap > 0 && current_chunk.len() > self.chunk_overlap {
-                        let overlap_start = current_chunk.len() - self.chunk_overlap;
-                        current_chunk = current_chunk[overlap_start..].to_string();
-                    } else {
-                        current_chunk = String::new();
-                    }
+                // Handle overlap by keeping last part of current chunk
+                if self.chunk_overlap > 0 && current_chunk.len() > self.chunk_overlap {
+                    let overlap_start = current_chunk.len() - self.chunk_overlap;
+                    current_chunk = current_chunk[overlap_start..].to_string();
+                } else {
+                    current_chunk = String::new();
                 }
             }
 
