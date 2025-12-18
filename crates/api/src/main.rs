@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Redis pool initialized");
 
     let storage_config = StorageConfig::from_env().unwrap_or_else(|_| {
-        StorageConfig::rustfs("http://localhost:9000", "minioadmin", "minioadmin")
+        StorageConfig::rustfs("http://localhost:9000", "admin", "adminpassword")
             .with_default_bucket("brochures")
     });
     let storage_client = StorageClient::new(storage_config);

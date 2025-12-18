@@ -37,6 +37,8 @@ agentic-rust/
 ├── Cargo.toml              # Workspace root
 ├── docker-compose.yml      # Local development services
 ├── .env.example            # Environment variables template
+├── config/
+│   └── prompts.toml        # Prompt configuration (Langfuse)
 ├── migrations/             # Database migrations
 └── crates/
     ├── common/             # Shared types, traits, utilities
@@ -44,7 +46,8 @@ agentic-rust/
     ├── agent/              # LLM agent implementation with rig
     ├── api/                # REST API service (Axum)
     ├── worker/             # Background job processing (Apalis)
-    └── db/                 # Database layer (SQLx + PostgreSQL)
+    ├── db/                 # Database layer (SQLx + PostgreSQL)
+    └── storage/            # S3-compatible object storage (RustFS)
 ```
 
 ## Technology Stack
@@ -55,6 +58,7 @@ agentic-rust/
 - **Vector Database**: [Qdrant](https://qdrant.tech/)
 - **Database**: PostgreSQL with SQLx
 - **Job Queue**: [Apalis](https://github.com/geofmureithi/apalis) + Redis
+- **Object Storage**: RustFS (S3-compatible)
 - **Async Runtime**: Tokio
 
 ## Getting Started
@@ -66,6 +70,7 @@ agentic-rust/
 - PostgreSQL (or use Docker)
 - Redis (or use Docker)
 - Qdrant (or use Docker)
+- RustFS (or use Docker)
 
 ### Setup
 
@@ -124,6 +129,14 @@ cargo run --bin worker
 - `POST /api/v1/documents/:id/index` - Index document for RAG
 - `POST /api/v1/documents/search` - Semantic search
 
+### Files (Storage)
+- `POST /api/v1/files/brochures` - Upload brochure file
+- `POST /api/v1/files/:bucket/:key/upload-url` - Get presigned upload URL
+- `GET /api/v1/files/:bucket` - List files in bucket
+- `GET /api/v1/files/:bucket/:key` - Get file info
+- `GET /api/v1/files/:bucket/:key/download` - Get presigned download URL
+- `DELETE /api/v1/files/:bucket/:key` - Delete file
+
 ### Health
 - `GET /health` - Basic health check
 - `GET /ready` - Readiness check (verifies dependencies)
@@ -142,6 +155,10 @@ Configuration is loaded from environment variables:
 | `SERVER_PORT` | API server port | `8080` |
 | `WORKER_CONCURRENCY` | Number of worker threads | `4` |
 | `RUST_LOG` | Log level | `info` |
+| `STORAGE_ENDPOINT` | RustFS/S3 endpoint URL | `http://localhost:9000` |
+| `STORAGE_ACCESS_KEY` | Storage access key | `admin` |
+| `STORAGE_SECRET_KEY` | Storage secret key | `adminpassword` |
+| `STORAGE_DEFAULT_BUCKET` | Default bucket name | `brochures` |
 
 ## Crate Overview
 
@@ -181,6 +198,137 @@ Database layer:
 - PostgreSQL connection pool
 - Repository pattern
 - SQLx migrations
+
+### `storage`
+S3-compatible object storage:
+- RustFS integration (S3-compatible)
+- File upload/download with streaming
+- Presigned URL support
+- Automatic bucket creation
+- SHA256 integrity verification
+
+## Deployment
+
+### Local Development
+
+1. **Start infrastructure services**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Verify services are running**
+   ```bash
+   docker-compose ps
+   ```
+
+   Services should show:
+   - `agentic-postgres` (port 5432)
+   - `agentic-redis` (port 6379)
+   - `agentic-qdrant` (ports 6333, 6334)
+   - `agentic-rustfs` (port 9000)
+
+3. **Run the API and Worker**
+   ```bash
+   # Terminal 1: API server
+   cargo run --bin api-server
+
+   # Terminal 2: Worker
+   cargo run --bin worker
+   ```
+
+### Docker Deployment
+
+Build and run the entire stack with Docker:
+
+```bash
+# Build the Rust services
+docker build -t agentic-api -f Dockerfile.api .
+docker build -t agentic-worker -f Dockerfile.worker .
+
+# Run with docker-compose (includes all dependencies)
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### Production Deployment
+
+For production environments:
+
+1. **Environment Variables**
+   ```bash
+   # Required
+   DATABASE_URL=postgres://user:password@host:5432/agentic
+   REDIS_URL=redis://host:6379
+   QDRANT_URL=http://host:6333
+   OPENAI_API_KEY=sk-your-key
+
+   # Storage (RustFS)
+   STORAGE_ENDPOINT=http://rustfs-host:9000
+   STORAGE_ACCESS_KEY=your-access-key
+   STORAGE_SECRET_KEY=your-secret-key
+   STORAGE_DEFAULT_BUCKET=brochures
+   ```
+
+2. **Database Migrations**
+   ```bash
+   cargo install sqlx-cli
+   sqlx migrate run
+   ```
+
+3. **Run Services**
+   ```bash
+   # Build release binaries
+   cargo build --release
+
+   # Run API (with systemd or process manager)
+   ./target/release/api-server
+
+   # Run Worker
+   ./target/release/worker
+   ```
+
+### Kubernetes Deployment
+
+Example Kubernetes manifests:
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentic-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: agentic-api
+  template:
+    metadata:
+      labels:
+        app: agentic-api
+    spec:
+      containers:
+      - name: api
+        image: your-registry/agentic-api:latest
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef:
+            name: agentic-secrets
+        - configMapRef:
+            name: agentic-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentic-api
+spec:
+  selector:
+    app: agentic-api
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: LoadBalancer
+```
 
 ## Development
 
