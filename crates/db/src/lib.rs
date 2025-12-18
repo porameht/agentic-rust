@@ -12,4 +12,4 @@ pub mod repositories;
 pub mod schema;
 
 pub use pool::{DbPool, PgConn, PgPool, MIGRATIONS};
-pub use repositories::{ConversationRepository, DocumentRepository, JobRepository};
+pub use repositories::{ConversationRepository, DocumentRepository, JobRepository, MessageRepository};

@@ -42,7 +42,6 @@ pub struct NewDocument<'a> {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Conversation {
     pub id: Uuid,
-    pub messages: serde_json::Value,
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -52,10 +51,65 @@ pub struct Conversation {
 #[diesel(table_name = conversations)]
 pub struct NewConversation {
     pub id: Uuid,
-    pub messages: serde_json::Value,
     pub agent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// Messages
+// ============================================================================
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
+#[diesel(table_name = messages)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct Message {
+    pub id: Uuid,
+    pub conversation_id: Uuid,
+    pub role: String,
+    pub content: String,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = messages)]
+pub struct NewMessage<'a> {
+    pub id: Uuid,
+    pub conversation_id: Uuid,
+    pub role: &'a str,
+    pub content: &'a str,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// Message Reactions
+// ============================================================================
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
+#[diesel(table_name = message_reactions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct MessageReaction {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub user_id: Option<String>,
+    pub reaction_type: String,
+    pub feedback: Option<String>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = message_reactions)]
+pub struct NewMessageReaction<'a> {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub user_id: Option<&'a str>,
+    pub reaction_type: &'a str,
+    pub feedback: Option<&'a str>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
 }
 
 // ============================================================================
