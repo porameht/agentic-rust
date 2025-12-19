@@ -59,6 +59,7 @@ pub mod agent;
 pub mod crew;
 pub mod examples;
 pub mod flow;
+pub mod integration;
 pub mod memory;
 pub mod process;
 pub mod task;
@@ -77,4 +78,10 @@ pub use task::{Task, TaskBuilder, TaskConfig, TaskContext, TaskOutput, TaskStatu
 pub use examples::{
     create_code_review_crew, create_content_flow, create_research_crew, create_sales_crew,
     create_support_flow,
+};
+
+// Re-export integration examples
+pub use integration::{
+    create_content_pipeline, run_content_pipeline, run_simple_crew_example, ContentPipeline,
+    PipelineResult, PipelineStats,
 };

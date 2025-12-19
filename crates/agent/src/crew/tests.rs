@@ -624,7 +624,7 @@ mod integration_tests {
 
     #[test]
     fn test_flow_with_conditional_transitions() {
-        let _flow = Flow::builder()
+        let flow = Flow::builder()
             .id("conditional-flow")
             .state(FlowState::new("review", "Review").initial())
             .state(FlowState::new("approved", "Approved").final_state())
