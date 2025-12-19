@@ -63,6 +63,9 @@ pub mod memory;
 pub mod process;
 pub mod task;
 
+#[cfg(test)]
+mod tests;
+
 pub use agent::{Agent, AgentBuilder as CrewAgentBuilder, AgentConfig as CrewAgentConfig};
 pub use crew::{Crew, CrewBuilder, CrewConfig, CrewResult};
 pub use flow::{Flow, FlowBuilder, FlowState, StateTransition, TransitionCondition};
