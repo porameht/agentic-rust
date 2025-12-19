@@ -132,4 +132,120 @@ mod tests {
         assert!(template.unwrap().contains("helpful"));
         assert!(templates::get("nonexistent").is_none());
     }
+
+    #[test]
+    fn test_prompt_builder_default() {
+        let builder = PromptBuilder::default();
+        let prompt = builder.build();
+        assert!(prompt.is_empty());
+    }
+
+    #[test]
+    fn test_prompt_builder_raw() {
+        let prompt = PromptBuilder::new()
+            .raw("Raw content without prefix")
+            .build();
+
+        assert_eq!(prompt, "Raw content without prefix");
+    }
+
+    #[test]
+    fn test_prompt_builder_empty_context() {
+        let prompt = PromptBuilder::new()
+            .system("System instruction")
+            .context(&[])
+            .query("Question")
+            .build();
+
+        assert!(prompt.contains("System instruction"));
+        assert!(prompt.contains("Question"));
+        assert!(!prompt.contains("Context:"));
+    }
+
+    #[test]
+    fn test_prompt_builder_multiple_systems() {
+        let prompt = PromptBuilder::new()
+            .system("First instruction")
+            .system("Second instruction")
+            .build();
+
+        assert!(prompt.contains("First instruction"));
+        assert!(prompt.contains("Second instruction"));
+    }
+
+    #[test]
+    fn test_prompt_builder_context_numbering() {
+        let prompt = PromptBuilder::new()
+            .context(&["Doc A", "Doc B", "Doc C"])
+            .build();
+
+        assert!(prompt.contains("[1]: Doc A"));
+        assert!(prompt.contains("[2]: Doc B"));
+        assert!(prompt.contains("[3]: Doc C"));
+    }
+
+    #[test]
+    fn test_prompt_builder_unicode() {
+        let prompt = PromptBuilder::new()
+            .system("คุณเป็นผู้ช่วย")
+            .context(&["เอกสาร 1", "เอกสาร 2"])
+            .query("คำถามภาษาไทย")
+            .build();
+
+        assert!(prompt.contains("คุณเป็นผู้ช่วย"));
+        assert!(prompt.contains("เอกสาร 1"));
+        assert!(prompt.contains("คำถามภาษาไทย"));
+    }
+
+    #[test]
+    fn test_prompt_builder_chaining() {
+        let prompt = PromptBuilder::new()
+            .system("Instruction 1")
+            .raw("Raw section")
+            .context(&["Context doc"])
+            .query("Final question")
+            .build();
+
+        let parts: Vec<&str> = prompt.split("\n\n").collect();
+        assert!(parts.len() >= 4);
+    }
+
+    #[test]
+    fn test_get_config() {
+        let config = get_config();
+        // Verify config is accessible
+        assert!(config.get_template("general_assistant").is_some());
+    }
+
+    #[test]
+    fn test_get_template_function() {
+        let template = get_template("general_assistant");
+        assert!(template.is_some());
+
+        let nonexistent = get_template("this_does_not_exist");
+        assert!(nonexistent.is_none());
+    }
+
+    #[test]
+    fn test_prompt_builder_long_context() {
+        let long_docs: Vec<&str> = (0..10)
+            .map(|i| match i {
+                0 => "Document zero",
+                1 => "Document one",
+                2 => "Document two",
+                3 => "Document three",
+                4 => "Document four",
+                5 => "Document five",
+                6 => "Document six",
+                7 => "Document seven",
+                8 => "Document eight",
+                _ => "Document nine",
+            })
+            .collect();
+
+        let prompt = PromptBuilder::new().context(&long_docs).build();
+
+        assert!(prompt.contains("[1]:"));
+        assert!(prompt.contains("[10]:"));
+    }
 }

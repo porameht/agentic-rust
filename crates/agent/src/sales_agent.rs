@@ -155,4 +155,87 @@ mod tests {
 
         assert_eq!(config.preamble, "Custom preamble");
     }
+
+    #[test]
+    fn test_sales_agent_default() {
+        let builder = SalesAgentBuilder::default();
+        let (config, tools) = builder.build();
+
+        assert_eq!(config.id, "sales-agent");
+        assert!(!tools.is_empty());
+    }
+
+    #[test]
+    fn test_sales_agent_thai_language() {
+        let config = create_sales_agent_config("th");
+        // Thai config should have a preamble
+        assert!(!config.preamble.is_empty());
+    }
+
+    #[test]
+    fn test_sales_agent_top_k_documents() {
+        let (config, _) = SalesAgentBuilder::new()
+            .top_k_documents(10)
+            .build();
+
+        assert_eq!(config.top_k_documents, 10);
+    }
+
+    #[test]
+    fn test_custom_context() {
+        let (config, _) = SalesAgentBuilder::new()
+            .with_custom_context("Special promotion: 50% off")
+            .build();
+
+        assert!(config.preamble.contains("Additional Context"));
+        assert!(config.preamble.contains("Special promotion"));
+    }
+
+    #[test]
+    fn test_sales_agent_tools_not_empty() {
+        let (_, tools) = SalesAgentBuilder::new().build();
+        assert!(!tools.is_empty());
+        assert_eq!(tools.len(), 4);
+    }
+
+    #[test]
+    fn test_builder_chaining() {
+        let (config, _) = SalesAgentBuilder::new()
+            .language("en")
+            .model("claude-3-opus")
+            .temperature(0.5)
+            .top_k_documents(8)
+            .build();
+
+        assert_eq!(config.model, "claude-3-opus");
+        assert_eq!(config.temperature, 0.5);
+        assert_eq!(config.top_k_documents, 8);
+    }
+
+    #[test]
+    fn test_language_switch() {
+        let builder = SalesAgentBuilder::new();
+        let (config_th, _) = builder.build();
+
+        let builder = SalesAgentBuilder::new().language("en");
+        let (config_en, _) = builder.build();
+
+        // Both should have valid preambles
+        assert!(!config_th.preamble.is_empty());
+        assert!(!config_en.preamble.is_empty());
+    }
+
+    #[test]
+    fn test_fallback_language() {
+        // Test with unknown language - should fallback to English
+        let config = create_sales_agent_config("unknown");
+        assert!(!config.preamble.is_empty());
+    }
+
+    #[test]
+    fn test_sales_agent_config_has_tools() {
+        let config = create_sales_agent_config("en");
+        // Should have some tools configured
+        assert!(!config.tools.is_empty());
+    }
 }
