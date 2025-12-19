@@ -56,6 +56,7 @@
 //! ```
 
 pub mod agent;
+pub mod config;
 pub mod crew;
 pub mod examples;
 pub mod flow;
@@ -64,12 +65,15 @@ pub mod memory;
 pub mod process;
 pub mod prompts;
 pub mod task;
+pub mod tools;
 
 #[cfg(test)]
 mod tests;
 
 pub use agent::{Agent, AgentBuilder as CrewAgentBuilder, AgentConfig as CrewAgentConfig};
-pub use crew::{Crew, CrewBuilder, CrewConfig, CrewResult};
+pub use crew::{
+    create_data_analyst_crew, Crew, CrewBase, CrewBuilder, CrewConfig, CrewFromConfig, CrewResult,
+};
 pub use flow::{Flow, FlowBuilder, FlowState, StateTransition, TransitionCondition};
 pub use memory::{Memory, MemoryConfig, MemoryType};
 pub use process::{Process, ProcessConfig};
@@ -91,4 +95,17 @@ pub use integration::{
 pub use prompts::{
     crew_prompts, AgentPromptTemplates, CrewPromptConfig, CrewPromptTemplates, I18nPrompts,
     PromptBuilder, RolePromptConfig, RolePrompts, TaskPromptTemplates,
+};
+
+// Re-export YAML configuration
+pub use config::{
+    example_agents_yaml, example_tasks_yaml, substitute_variables, AgentYamlConfig,
+    AgentsConfig, ConfigError, CrewYamlConfig, TaskYamlConfig, TasksConfig,
+};
+
+// Re-export tools
+pub use tools::{
+    BaseTool, CrewToolDefinition, DynamicTool, FileReadInput, FileReadTool, FileWriteInput,
+    FileWriteTool, ReplInput, ReplTool, ToolError, ToolInput, ToolRegistry, WebSearchInput,
+    WebSearchTool,
 };

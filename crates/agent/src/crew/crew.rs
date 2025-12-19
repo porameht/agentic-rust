@@ -13,9 +13,11 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::agent::{Agent, AgentError, AgentExecutor, ExecutionContext};
+use super::config::{AgentsConfig, CrewYamlConfig, TasksConfig};
 use super::memory::{CrewMemory, MemoryConfig};
 use super::process::{Process, ProcessConfig};
 use super::task::{Task, TaskError, TaskOutput};
+use super::tools::ToolRegistry;
 
 /// Errors that can occur during crew operations
 #[derive(Error, Debug)]
@@ -684,6 +686,266 @@ impl Default for CrewBuilder {
     }
 }
 
+// ============================================================================
+// CREWAI-STYLE CREW BASE (matching Python @CrewBase decorator)
+// ============================================================================
+
+/// Trait for defining CrewAI-style crews (similar to Python's @CrewBase decorator)
+///
+/// This provides the `@agent` and `@task` decorator pattern from Python CrewAI.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use agent::crew::{Agent, Task, Crew, CrewBase, Process};
+///
+/// struct DataAnalystCrew {
+///     config: CrewYamlConfig,
+/// }
+///
+/// impl CrewBase for DataAnalystCrew {
+///     fn agents(&self) -> Vec<Agent> {
+///         vec![
+///             self.researcher(),
+///             self.reporting_analyst(),
+///         ]
+///     }
+///
+///     fn tasks(&self) -> Vec<Task> {
+///         vec![
+///             self.research_task(),
+///             self.reporting_task(),
+///         ]
+///     }
+///
+///     fn crew(&self) -> Crew {
+///         self.build_crew("data_analyst", Process::Sequential)
+///     }
+/// }
+///
+/// impl DataAnalystCrew {
+///     // @agent decorator equivalent
+///     fn researcher(&self) -> Agent {
+///         self.config.get_agent("researcher")
+///             .unwrap()
+///             .to_agent("researcher")
+///     }
+///
+///     // @task decorator equivalent
+///     fn research_task(&self) -> Task {
+///         self.config.get_task("research_task")
+///             .unwrap()
+///             .to_task("research_task")
+///     }
+/// }
+/// ```
+pub trait CrewBase {
+    /// Define all agents in this crew (like @agent decorated methods)
+    fn agents(&self) -> Vec<Agent>;
+
+    /// Define all tasks in this crew (like @task decorated methods)
+    fn tasks(&self) -> Vec<Task>;
+
+    /// Build and return the crew instance
+    fn crew(&self) -> Crew;
+
+    /// Build a crew from agents and tasks with specified process
+    fn build_crew(&self, name: impl Into<String>, process: Process) -> Crew {
+        let name = name.into();
+        let mut builder = Crew::builder()
+            .id(&name)
+            .name(&name)
+            .process(process);
+
+        for agent in self.agents() {
+            builder = builder.agent(agent);
+        }
+
+        for task in self.tasks() {
+            builder = builder.task(task);
+        }
+
+        builder.build()
+    }
+
+    /// Run the crew and return results
+    fn kickoff(&self) -> impl std::future::Future<Output = Result<CrewResult, CrewError>> + Send {
+        let mut crew = self.crew();
+        async move { crew.kickoff().await }
+    }
+}
+
+/// Helper struct for creating crews from YAML configuration
+/// (Similar to Python's @CrewBase with agents_config and tasks_config)
+pub struct CrewFromConfig {
+    /// Loaded agents configuration
+    pub agents_config: AgentsConfig,
+    /// Loaded tasks configuration
+    pub tasks_config: TasksConfig,
+    /// Template variables for substitution
+    pub variables: HashMap<String, String>,
+    /// Tool registry
+    pub tools: ToolRegistry,
+}
+
+impl CrewFromConfig {
+    /// Create from YAML configuration
+    pub fn new(config: CrewYamlConfig) -> Self {
+        Self {
+            agents_config: config.agents,
+            tasks_config: config.tasks,
+            variables: HashMap::new(),
+            tools: ToolRegistry::with_defaults(),
+        }
+    }
+
+    /// Create from YAML strings
+    pub fn from_yaml(agents_yaml: &str, tasks_yaml: &str) -> Result<Self, super::config::ConfigError> {
+        let agents_config = AgentsConfig::from_yaml(agents_yaml)?;
+        let tasks_config = TasksConfig::from_yaml(tasks_yaml)?;
+
+        Ok(Self {
+            agents_config,
+            tasks_config,
+            variables: HashMap::new(),
+            tools: ToolRegistry::with_defaults(),
+        })
+    }
+
+    /// Create from configuration directory
+    pub fn from_directory<P: AsRef<std::path::Path>>(config_dir: P) -> Result<Self, super::config::ConfigError> {
+        let config = CrewYamlConfig::from_directory(config_dir)?;
+        Ok(Self::new(config))
+    }
+
+    /// Set template variables
+    pub fn with_variables(mut self, vars: HashMap<String, String>) -> Self {
+        self.variables = vars;
+        self
+    }
+
+    /// Add a template variable
+    pub fn variable(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.variables.insert(key.into(), value.into());
+        self
+    }
+
+    /// Set tool registry
+    pub fn with_tools(mut self, tools: ToolRegistry) -> Self {
+        self.tools = tools;
+        self
+    }
+
+    /// Get an agent by ID with variable substitution
+    pub fn agent(&self, id: &str) -> Option<Agent> {
+        let config = self.agents_config.agents.get(id)?;
+
+        // Apply variable substitution
+        let mut config = config.clone();
+        config.role = super::config::substitute_variables(&config.role, &self.variables);
+        config.goal = super::config::substitute_variables(&config.goal, &self.variables);
+        config.backstory = super::config::substitute_variables(&config.backstory, &self.variables);
+
+        Some(config.to_agent(id))
+    }
+
+    /// Get a task by ID with variable substitution
+    pub fn task(&self, id: &str) -> Option<Task> {
+        let config = self.tasks_config.tasks.get(id)?;
+
+        // Apply variable substitution
+        let mut config = config.clone();
+        config.description = super::config::substitute_variables(&config.description, &self.variables);
+        config.expected_output = super::config::substitute_variables(&config.expected_output, &self.variables);
+
+        Some(config.to_task(id))
+    }
+
+    /// Build all agents
+    pub fn all_agents(&self) -> Vec<Agent> {
+        self.agents_config
+            .agents
+            .iter()
+            .map(|(id, _)| self.agent(id).unwrap())
+            .collect()
+    }
+
+    /// Build all tasks
+    pub fn all_tasks(&self) -> Vec<Task> {
+        self.tasks_config
+            .tasks
+            .iter()
+            .map(|(id, _)| self.task(id).unwrap())
+            .collect()
+    }
+
+    /// Build a crew with all agents and tasks
+    pub fn build_crew(&self, name: impl Into<String>, process: Process) -> Crew {
+        let name = name.into();
+        let mut builder = Crew::builder()
+            .id(&name)
+            .name(&name)
+            .process(process);
+
+        for agent in self.all_agents() {
+            builder = builder.agent(agent);
+        }
+
+        for task in self.all_tasks() {
+            builder = builder.task(task);
+        }
+
+        builder.build()
+    }
+
+    /// Build a crew with specific agents and tasks
+    pub fn build_crew_with(
+        &self,
+        name: impl Into<String>,
+        agent_ids: &[&str],
+        task_ids: &[&str],
+        process: Process,
+    ) -> Crew {
+        let name = name.into();
+        let mut builder = Crew::builder()
+            .id(&name)
+            .name(&name)
+            .process(process);
+
+        for agent_id in agent_ids {
+            if let Some(agent) = self.agent(agent_id) {
+                builder = builder.agent(agent);
+            }
+        }
+
+        for task_id in task_ids {
+            if let Some(task) = self.task(task_id) {
+                builder = builder.task(task);
+            }
+        }
+
+        builder.build()
+    }
+}
+
+/// Create a data analyst crew matching the Python data-analyst-agent example
+pub fn create_data_analyst_crew(topic: &str, problem: Option<&str>) -> CrewFromConfig {
+    let agents_yaml = super::config::example_agents_yaml();
+    let tasks_yaml = super::config::example_tasks_yaml();
+
+    let config = CrewFromConfig::from_yaml(agents_yaml, tasks_yaml)
+        .expect("Failed to parse example YAML");
+
+    let mut vars = HashMap::new();
+    vars.insert("topic".to_string(), topic.to_string());
+    vars.insert("current_year".to_string(), "2024".to_string());
+    if let Some(p) = problem {
+        vars.insert("problem".to_string(), p.to_string());
+    }
+
+    config.with_variables(vars)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -755,5 +1017,53 @@ mod tests {
         let result = crew.kickoff().await.unwrap();
         assert!(result.success);
         assert_eq!(result.task_outputs.len(), 1);
+    }
+
+    #[test]
+    fn test_crew_from_config() {
+        let config = create_data_analyst_crew("AI Agents", Some("sorting algorithm"));
+
+        // Check agents are created with variable substitution
+        let researcher = config.agent("researcher").unwrap();
+        assert_eq!(researcher.role(), "Senior Data Researcher");
+        assert!(researcher.goal().contains("AI Agents"));
+        assert!(!researcher.goal().contains("{topic}"));
+
+        // Check tasks are created with variable substitution
+        let research_task = config.task("research_task").unwrap();
+        assert!(research_task.description().contains("AI Agents"));
+        assert!(!research_task.description().contains("{topic}"));
+    }
+
+    #[test]
+    fn test_crew_from_config_build() {
+        let config = create_data_analyst_crew("Machine Learning", None);
+
+        // Build research crew with specific agents/tasks
+        let crew = config.build_crew_with(
+            "research_crew",
+            &["researcher", "reporting_analyst"],
+            &["research_task", "reporting_task"],
+            Process::Sequential,
+        );
+
+        assert_eq!(crew.id(), "research_crew");
+        assert_eq!(crew.agents().len(), 2);
+        assert_eq!(crew.tasks().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_data_analyst_crew_execution() {
+        let config = create_data_analyst_crew("Rust Programming", None);
+
+        let mut crew = config.build_crew_with(
+            "test_crew",
+            &["researcher"],
+            &["research_task"],
+            Process::Sequential,
+        );
+
+        let result = crew.kickoff().await.unwrap();
+        assert!(result.success);
     }
 }
