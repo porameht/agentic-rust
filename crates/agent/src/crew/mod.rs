@@ -71,9 +71,7 @@ pub mod tools;
 mod tests;
 
 pub use agent::{Agent, AgentBuilder as CrewAgentBuilder, AgentConfig as CrewAgentConfig};
-pub use crew::{
-    create_data_analyst_crew, Crew, CrewBase, CrewBuilder, CrewConfig, CrewFromConfig, CrewResult,
-};
+pub use crew::{example_analyst_crew, Crew, CrewBuilder, CrewConfig, CrewLoader, CrewResult};
 pub use flow::{Flow, FlowBuilder, FlowState, StateTransition, TransitionCondition};
 pub use memory::{Memory, MemoryConfig, MemoryType};
 pub use process::{Process, ProcessConfig};
