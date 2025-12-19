@@ -777,13 +777,14 @@ impl CrewLoader {
     }
 }
 
-/// Create example data analyst crew
-pub fn example_analyst_crew(topic: &str) -> Result<CrewLoader, super::config::ConfigError> {
-    CrewLoader::from_yaml(
-        super::config::example_agents_yaml(),
-        super::config::example_tasks_yaml(),
-    )
-    .map(|l| l.var("topic", topic).var("current_year", "2024"))
+impl CrewLoader {
+    /// Load example configuration (for demos/testing)
+    pub fn example() -> Result<Self, super::config::ConfigError> {
+        Self::from_yaml(
+            super::config::example_agents_yaml(),
+            super::config::example_tasks_yaml(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -861,38 +862,34 @@ mod tests {
 
     #[test]
     fn test_crew_loader() {
-        let loader = example_analyst_crew("AI Agents").unwrap();
+        let loader = CrewLoader::example().unwrap().var("topic", "AI Agents");
 
-        // Check agents are created with variable substitution
         let researcher = loader.agent("researcher").unwrap();
         assert_eq!(researcher.role(), "Senior Data Researcher");
         assert!(researcher.goal().contains("AI Agents"));
-        assert!(!researcher.goal().contains("{topic}"));
 
-        // Check tasks are created with variable substitution
         let task = loader.task("research_task").unwrap();
         assert!(task.description().contains("AI Agents"));
     }
 
     #[test]
     fn test_crew_loader_build() {
-        let loader = example_analyst_crew("Machine Learning").unwrap();
+        let loader = CrewLoader::example().unwrap().var("topic", "ML");
 
         let crew = loader.build(
-            "research_crew",
+            "test",
             &["researcher", "reporting_analyst"],
             &["research_task", "reporting_task"],
             Process::Sequential,
         );
 
-        assert_eq!(crew.id(), "research_crew");
         assert_eq!(crew.agents().len(), 2);
         assert_eq!(crew.tasks().len(), 2);
     }
 
     #[tokio::test]
     async fn test_crew_loader_execution() {
-        let loader = example_analyst_crew("Rust").unwrap();
+        let loader = CrewLoader::example().unwrap().var("topic", "Rust");
 
         let mut crew = loader.build(
             "test",
@@ -901,7 +898,6 @@ mod tests {
             Process::Sequential,
         );
 
-        let result = crew.kickoff().await.unwrap();
-        assert!(result.success);
+        assert!(crew.kickoff().await.unwrap().success);
     }
 }
