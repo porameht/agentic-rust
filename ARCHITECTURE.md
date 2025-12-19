@@ -784,3 +784,295 @@ volumes:
 - [RustFS - S3-compatible Object Storage](https://github.com/rustfs/rustfs)
 - [Langfuse - Prompt Management](https://langfuse.com/docs)
 - [Rust Microservices Monorepo](https://github.com/jayden-dang/rust-microservices-monorepo)
+
+---
+
+## CrewAI-Style Multi-Agent Architecture
+
+This section describes the CrewAI-inspired multi-agent orchestration framework implemented in the `crates/agent/src/crew/` module. This architecture enables role-based AI agents to collaborate on complex tasks through crews and event-driven flows.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CREWAI-STYLE ARCHITECTURE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                            FLOW (Optional)                           │   │
+│  │  Event-driven workflow orchestration with states & transitions       │   │
+│  │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────────┐      │   │
+│  │  │ State 1 │───▶│ State 2 │───▶│ State 3 │───▶│ Final State │      │   │
+│  │  │ (Crew A)│    │ (Crew B)│    │ (Crew C)│    │             │      │   │
+│  │  └─────────┘    └─────────┘    └─────────┘    └─────────────┘      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                              CREW                                    │   │
+│  │  Team of agents working together on tasks                            │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐   │   │
+│  │  │                         AGENTS                                │   │   │
+│  │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │   │   │
+│  │  │  │ Researcher   │  │   Writer     │  │   Coordinator    │   │   │   │
+│  │  │  │ Role: Analyst│  │ Role: Writer │  │ Role: Manager    │   │   │   │
+│  │  │  │ Goal: ...    │  │ Goal: ...    │  │ Goal: ...        │   │   │   │
+│  │  │  │ Backstory:...│  │ Backstory:...│  │ Allow delegation │   │   │   │
+│  │  │  │ Tools: [...]│  │ Tools: [...]│  │ Tools: [...]    │   │   │   │
+│  │  │  │ Memory: ✓    │  │ Memory: ✗    │  │ Memory: ✓        │   │   │   │
+│  │  │  └──────────────┘  └──────────────┘  └──────────────────┘   │   │   │
+│  │  └──────────────────────────────────────────────────────────────┘   │   │
+│  │                                                                      │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐   │   │
+│  │  │                          TASKS                                │   │   │
+│  │  │  ┌────────────┐    ┌────────────┐    ┌────────────────────┐  │   │   │
+│  │  │  │  Task 1    │───▶│  Task 2    │───▶│      Task 3        │  │   │   │
+│  │  │  │ Agent: A   │    │ Agent: B   │    │ Agent: C           │  │   │   │
+│  │  │  │ Depends: - │    │ Depends: 1 │    │ Depends: [1, 2]    │  │   │   │
+│  │  │  └────────────┘    └────────────┘    └────────────────────┘  │   │   │
+│  │  └──────────────────────────────────────────────────────────────┘   │   │
+│  │                                                                      │   │
+│  │  Process Types: Sequential │ Hierarchical │ Parallel                │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         CREW RESULT                                  │   │
+│  │  • Final combined output                                             │   │
+│  │  • Individual task outputs                                           │   │
+│  │  • Execution statistics                                              │   │
+│  │  • Success/failure status                                            │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. Agent (`crates/agent/src/crew/agent.rs`)
+
+Agents are autonomous AI units with specific roles, goals, and capabilities.
+
+```rust
+use agent::crew::Agent;
+
+let researcher = Agent::builder()
+    .id("researcher")
+    .role("Senior Research Analyst")
+    .goal("Conduct thorough research and provide accurate insights")
+    .backstory("Expert researcher with 10 years of experience in data analysis")
+    .model("gpt-4")
+    .temperature(0.3)
+    .verbose(true)
+    .with_long_term_memory()
+    .tool_name("web_search")
+    .tool_name("document_reader")
+    .build();
+```
+
+**Key Agent Properties:**
+- **role**: The agent's job title/function
+- **goal**: What the agent is trying to achieve
+- **backstory**: Background providing personality context
+- **model**: LLM model to use (gpt-4, claude-3, etc.)
+- **tools**: Capabilities available to the agent
+- **memory**: Short-term or long-term memory for context
+- **allow_delegation**: Whether agent can delegate to others
+
+#### 2. Task (`crates/agent/src/crew/task.rs`)
+
+Tasks are specific assignments given to agents with defined expectations.
+
+```rust
+use agent::crew::Task;
+
+let research_task = Task::builder()
+    .id("research-task")
+    .name("Research AI Frameworks")
+    .description("Research the latest AI agent frameworks and their architectures")
+    .expected_output("Comprehensive report with key findings and recommendations")
+    .agent("researcher")
+    .timeout(300) // 5 minutes
+    .build();
+
+let writing_task = Task::builder()
+    .id("writing-task")
+    .description("Write a blog post based on research")
+    .expected_output("Engaging 1500-word blog post")
+    .agent("writer")
+    .depends_on("research-task")  // Context from research flows to writing
+    .build();
+```
+
+**Task Features:**
+- **Dependencies**: Tasks can depend on other tasks for context
+- **Expected Output**: Clear description of what success looks like
+- **Timeout**: Maximum execution time
+- **Human Input**: Optional human validation step
+
+#### 3. Crew (`crates/agent/src/crew/crew.rs`)
+
+Crews are teams of agents that work together to complete a set of tasks.
+
+```rust
+use agent::crew::{Crew, Process};
+
+let mut crew = Crew::builder()
+    .id("content-crew")
+    .name("Content Creation Crew")
+    .agent(researcher)
+    .agent(writer)
+    .task(research_task)
+    .task(writing_task)
+    .process(Process::Sequential)
+    .verbose(true)
+    .build();
+
+// Execute the crew
+let result = crew.kickoff().await?;
+println!("Output: {}", result.output);
+```
+
+**Process Types:**
+- **Sequential**: Tasks execute one after another, passing context
+- **Hierarchical**: Manager agent delegates and coordinates tasks
+- **Parallel**: Independent tasks run concurrently
+
+#### 4. Flow (`crates/agent/src/crew/flow.rs`)
+
+Flows provide event-driven workflows with states and conditional transitions.
+
+```rust
+use agent::crew::{Flow, FlowState, StateTransition, TransitionCondition};
+
+let flow = Flow::builder()
+    .id("content-flow")
+    .name("Content Creation Flow")
+    // Define states
+    .state(FlowState::new("research", "Research Phase").initial().with_crew("research-crew"))
+    .state(FlowState::new("writing", "Writing Phase").with_crew("writing-crew"))
+    .state(FlowState::new("review", "Review Phase").with_crew("review-crew"))
+    .state(FlowState::new("published", "Published").final_state())
+    .state(FlowState::new("revision", "Revision Needed").with_crew("revision-crew"))
+    // Define transitions
+    .transition(StateTransition::new("research", "writing").when(TransitionCondition::OnSuccess))
+    .transition(StateTransition::new("writing", "review").when(TransitionCondition::OnSuccess))
+    .transition(StateTransition::new("review", "published")
+        .when(TransitionCondition::OutputContains("approved".to_string()))
+        .with_priority(10))
+    .transition(StateTransition::new("review", "revision")
+        .when(TransitionCondition::OutputContains("revision".to_string())))
+    .transition(StateTransition::new("revision", "writing"))
+    .build();
+
+let result = flow.run().await?;
+```
+
+**Transition Conditions:**
+- `Always`: Unconditional transition
+- `OnSuccess`: Transition on successful execution
+- `OnFailure`: Transition on failure
+- `OutputContains(text)`: Content-based routing
+- `VariableEquals`: State-based routing
+- `And/Or/Not`: Combine conditions
+
+#### 5. Memory (`crates/agent/src/crew/memory.rs`)
+
+Memory system for agents to retain context across tasks.
+
+```rust
+use agent::crew::{MemoryConfig, MemoryType};
+
+let agent = Agent::builder()
+    .role("Customer Support")
+    .memory(MemoryConfig {
+        memory_type: MemoryType::LongTerm,
+        max_items: 1000,
+        use_embeddings: true,
+        persist: true,
+        ..Default::default()
+    })
+    .build();
+```
+
+**Memory Types:**
+- **ShortTerm**: Cleared after task/session
+- **LongTerm**: Persisted across sessions
+- **Entity**: Stores information about entities
+- **Episodic**: Stores sequences of events
+
+### Pre-built Example Crews
+
+The framework includes ready-to-use crew configurations:
+
+```rust
+use agent::crew::examples::*;
+
+// Research and writing crew
+let mut research_crew = create_research_crew("AI Agents", "blog post");
+let result = research_crew.kickoff().await?;
+
+// Sales support crew with multi-language support
+let mut sales_crew = create_sales_crew("Enterprise Software", "Thai");
+let result = sales_crew.kickoff().await?;
+
+// Code review crew with security, performance, and quality reviewers
+let mut review_crew = create_code_review_crew("Rust");
+let result = review_crew.kickoff().await?;
+
+// Content creation flow with review cycle
+let mut content_flow = create_content_flow();
+let result = content_flow.run().await?;
+
+// Customer support flow with triage and escalation
+let mut support_flow = create_support_flow();
+let result = support_flow.run().await?;
+```
+
+### Integration with Rig Framework
+
+The crew system is designed to integrate with the [Rig](https://rig.rs) LLM framework:
+
+```rust
+// Agent execution uses rig for LLM calls
+// TODO: Full integration in agent.rs execute() method
+
+use rig::providers::openai;
+
+let client = openai::Client::from_env();
+let gpt4 = client.agent("gpt-4")
+    .preamble(&agent.system_prompt())
+    .build();
+
+let response = gpt4.prompt(&task.build_prompt()).await?;
+```
+
+### Module Structure
+
+```
+crates/agent/src/crew/
+├── mod.rs          # Module exports and documentation
+├── agent.rs        # Agent definition and builder
+├── task.rs         # Task definition and builder
+├── crew.rs         # Crew orchestrator
+├── flow.rs         # Event-driven workflow system
+├── process.rs      # Process types (Sequential, Hierarchical, Parallel)
+├── memory.rs       # Memory system for context retention
+└── examples.rs     # Pre-built crew configurations
+```
+
+### Key Design Decisions
+
+1. **Builder Pattern**: All components use fluent builders for ergonomic construction
+2. **Async-First**: All execution is async for scalability
+3. **Type Safety**: Rust's type system ensures correct agent-task assignments
+4. **Event Listeners**: Extensible event system for monitoring and logging
+5. **Process Abstraction**: Pluggable execution strategies
+6. **Memory Abstraction**: Swappable storage backends (in-memory, Redis, vector stores)
+
+### References
+
+- [CrewAI Python Framework](https://github.com/crewAIInc/crewAI)
+- [CrewAI Documentation](https://docs.crewai.com/)
+- [Rig - Rust LLM Framework](https://rig.rs/)
+- [Multi-Agent Systems Research](https://www.anthropic.com/research)

@@ -94,5 +94,119 @@ pub struct ChatResponse {
 
 #[cfg(test)]
 mod tests {
-    // Tests would go here with mock embedding model
+    use super::*;
+    use common::models::DocumentChunk;
+    use uuid::Uuid;
+
+    fn create_test_chunk(content: &str, index: usize) -> DocumentChunk {
+        DocumentChunk {
+            id: Uuid::new_v4(),
+            document_id: Uuid::new_v4(),
+            content: content.to_string(),
+            chunk_index: index,
+            metadata: serde_json::json!({}),
+        }
+    }
+
+    #[test]
+    fn test_chat_response_structure() {
+        let response = ChatResponse {
+            message: "Test message".to_string(),
+            sources: vec![],
+        };
+
+        assert_eq!(response.message, "Test message");
+        assert!(response.sources.is_empty());
+    }
+
+    #[test]
+    fn test_chat_response_with_sources() {
+        let sources = vec![
+            SearchResult {
+                chunk: create_test_chunk("Content 1", 0),
+                score: 0.95,
+            },
+            SearchResult {
+                chunk: create_test_chunk("Content 2", 1),
+                score: 0.85,
+            },
+        ];
+
+        let response = ChatResponse {
+            message: "Answer based on sources".to_string(),
+            sources,
+        };
+
+        assert_eq!(response.sources.len(), 2);
+        assert_eq!(response.sources[0].score, 0.95);
+        assert_eq!(response.sources[1].score, 0.85);
+    }
+
+    #[test]
+    fn test_chat_response_clone() {
+        let response = ChatResponse {
+            message: "Original".to_string(),
+            sources: vec![],
+        };
+
+        let cloned = response.clone();
+        assert_eq!(cloned.message, "Original");
+    }
+
+    #[test]
+    fn test_chat_response_debug() {
+        let response = ChatResponse {
+            message: "Debug test".to_string(),
+            sources: vec![],
+        };
+
+        let debug_str = format!("{:?}", response);
+        assert!(debug_str.contains("Debug test"));
+    }
+
+    #[test]
+    fn test_search_result_score_ordering() {
+        let mut results = vec![
+            SearchResult {
+                chunk: create_test_chunk("Low score", 0),
+                score: 0.5,
+            },
+            SearchResult {
+                chunk: create_test_chunk("High score", 1),
+                score: 0.9,
+            },
+        ];
+
+        // Sort by score descending
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+
+        assert_eq!(results[0].score, 0.9);
+        assert_eq!(results[1].score, 0.5);
+    }
+
+    #[test]
+    fn test_chat_response_with_multiple_sources() {
+        let sources: Vec<SearchResult> = (0..5)
+            .map(|i| SearchResult {
+                chunk: create_test_chunk(&format!("Content {}", i), i),
+                score: 1.0 - (i as f32 * 0.1),
+            })
+            .collect();
+
+        let response = ChatResponse {
+            message: "Multiple sources".to_string(),
+            sources,
+        };
+
+        assert_eq!(response.sources.len(), 5);
+        assert_eq!(response.sources[0].score, 1.0);
+        assert_eq!(response.sources[4].score, 0.6);
+    }
+
+    #[test]
+    fn test_document_chunk_content() {
+        let chunk = create_test_chunk("Test content", 0);
+        assert_eq!(chunk.content, "Test content");
+        assert_eq!(chunk.chunk_index, 0);
+    }
 }
