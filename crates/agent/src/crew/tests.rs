@@ -577,7 +577,7 @@ mod integration_tests {
         };
 
         // Test condition evaluation via flow
-        let flow = Flow::builder()
+        let _flow = Flow::builder()
             .state(FlowState::new("start", "Start").initial())
             .state(FlowState::new("end", "End").final_state())
             .simple_transition("start", "end")

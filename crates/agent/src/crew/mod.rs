@@ -62,6 +62,7 @@ pub mod flow;
 pub mod integration;
 pub mod memory;
 pub mod process;
+pub mod prompts;
 pub mod task;
 
 #[cfg(test)]
@@ -84,4 +85,10 @@ pub use examples::{
 pub use integration::{
     create_content_pipeline, run_content_pipeline, run_simple_crew_example, ContentPipeline,
     PipelineResult, PipelineStats,
+};
+
+// Re-export prompt configuration
+pub use prompts::{
+    crew_prompts, AgentPromptTemplates, CrewPromptConfig, CrewPromptTemplates, I18nPrompts,
+    PromptBuilder, RolePromptConfig, RolePrompts, TaskPromptTemplates,
 };
