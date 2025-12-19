@@ -2,10 +2,17 @@
 //!
 //! This crate provides two distinct approaches for building AI agents:
 //!
-//! # Flow 1: Single Agent with RAG (rig-core based)
+//! # Flow 1: Single Agent with RAG (Queue-based, Scalable)
 //!
-//! Traditional single-agent approach with Retrieval-Augmented Generation.
-//! Best for: Q&A systems, document search, knowledge bases.
+//! API-driven single-agent with queue-based processing for production scale.
+//! Best for: Chatbots, Q&A systems, document search, knowledge bases.
+//!
+//! ```text
+//! ┌──────────┐    ┌─────────┐    ┌────────┐    ┌───────────┐
+//! │   API    │───▶│  Queue  │───▶│ Worker │───▶│ RagAgent  │
+//! │ Request  │    │ (Redis) │    │        │    │  .chat()  │
+//! └──────────┘    └─────────┘    └────────┘    └───────────┘
+//! ```
 //!
 //! ```rust,ignore
 //! use agent::{AgentBuilder, RagAgent};
@@ -24,10 +31,26 @@
 //! let response = agent.chat("What is Rust?").await?;
 //! ```
 //!
-//! # Flow 2: Multi-Agent Orchestration (CrewAI-style)
+//! # Flow 2: Multi-Agent Orchestration (CrewAI-style, Direct Execution)
 //!
 //! Multiple agents collaborating on complex tasks with role specialization.
+//! Runs directly without queue - suitable for batch/background processing.
 //! Best for: Research pipelines, content creation, code review, data analysis.
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────┐
+//! │                     Direct Execution                        │
+//! │  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
+//! │  │Researcher│───▶│  Writer  │───▶│  Editor  │              │
+//! │  │  Agent   │    │  Agent   │    │  Agent   │              │
+//! │  └──────────┘    └──────────┘    └──────────┘              │
+//! │       │               │               │                     │
+//! │       ▼               ▼               ▼                     │
+//! │  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
+//! │  │  Task 1  │───▶│  Task 2  │───▶│  Task 3  │──▶ Result    │
+//! │  └──────────┘    └──────────┘    └──────────┘              │
+//! └─────────────────────────────────────────────────────────────┘
+//! ```
 //!
 //! ```rust,ignore
 //! use agent::crew::{Agent, Task, Crew, Process, CrewLoader};
@@ -62,19 +85,31 @@
 //! # Architecture Overview
 //!
 //! ```text
-//! ┌─────────────────────────────────────────────────────────────┐
-//! │                     agent crate                             │
-//! ├─────────────────────────────┬───────────────────────────────┤
-//! │   Flow 1: Single Agent      │   Flow 2: Multi-Agent (Crew)  │
-//! │   ─────────────────────     │   ──────────────────────────  │
-//! │   • AgentBuilder            │   • Agent, Task, Crew         │
-//! │   • RagAgent                │   • Flow (state machine)      │
-//! │   • SalesAgentBuilder       │   • CrewLoader (YAML config)  │
-//! │   • tools/ (rig tools)      │   • ToolRegistry (crew tools) │
-//! │                             │   • Memory, Process           │
-//! ├─────────────────────────────┴───────────────────────────────┤
-//! │                    Shared: rig-core, rag-core               │
-//! └─────────────────────────────────────────────────────────────┘
+//! ┌─────────────────────────────────────────────────────────────────────────┐
+//! │                           agent crate                                   │
+//! ├───────────────────────────────────┬─────────────────────────────────────┤
+//! │   Flow 1: Single Agent + Queue    │   Flow 2: Multi-Agent (CrewAI)      │
+//! │   ────────────────────────────    │   ─────────────────────────────     │
+//! │                                   │                                     │
+//! │   API Request                     │   Direct Execution                  │
+//! │       ↓                           │       ↓                             │
+//! │   Queue (Redis/etc)               │   Crew::builder()                   │
+//! │       ↓                           │       .agent(researcher)            │
+//! │   Worker                          │       .agent(writer)                │
+//! │       ↓                           │       .task(...)                    │
+//! │   RagAgent.chat()                 │       .build()                      │
+//! │       ↓                           │       ↓                             │
+//! │   Response                        │   crew.kickoff().await              │
+//! │                                   │                                     │
+//! │   Components:                     │   Components:                       │
+//! │   • AgentBuilder                  │   • Agent, Task, Crew               │
+//! │   • RagAgent                      │   • Flow (state machine)            │
+//! │   • SalesAgentBuilder             │   • Process (Sequential/Hier.)      │
+//! │   • tools/ (rig tools)            │   • Memory, ToolRegistry            │
+//! │                                   │   • YAML Config (CrewLoader)        │
+//! ├───────────────────────────────────┴─────────────────────────────────────┤
+//! │                        Shared: rig-core, rag-core                       │
+//! └─────────────────────────────────────────────────────────────────────────┘
 //! ```
 
 // ============================================================================
