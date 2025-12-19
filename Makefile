@@ -1,7 +1,7 @@
 # Agentic Rust Makefile
 # =====================
 
-.PHONY: help test test-all test-flow1 test-flow2 test-agent test-crew fmt lint check build clean
+.PHONY: help test test-agent test-crew test-count fmt lint check build clean
 
 # Default target
 help:
@@ -10,10 +10,8 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          - Run all tests"
-	@echo "  make test-flow1    - Run Flow 1 (Single Agent) tests only"
-	@echo "  make test-flow2    - Run Flow 2 (CrewAI) tests only"
-	@echo "  make test-agent    - Run agent crate tests"
-	@echo "  make test-crew     - Run crew module tests"
+	@echo "  make test-agent    - Run Single Agent tests (builder, prompts, rag_agent, sales_agent)"
+	@echo "  make test-crew     - Run CrewAI tests (crew module)"
 	@echo "  make test-count    - Show test count by module"
 	@echo ""
 	@echo "Development:"
@@ -32,43 +30,27 @@ help:
 test:
 	cargo test --workspace
 
-test-all: test
-
-# Flow 1: Single Agent tests (builder, prompts, rag_agent, sales_agent)
-test-flow1:
-	@echo "=== Flow 1: Single Agent Tests ==="
-	@cargo test -p agent --lib -- builder:: prompts:: rag_agent:: sales_agent:: 2>&1 | grep -E "^test (builder|prompts|rag_agent|sales_agent)::" || true
-	@echo ""
-	@echo "Running Flow 1 tests..."
-	@cargo test -p agent --lib builder prompts rag_agent sales_agent 2>&1 | tail -1
-
-# Flow 2: CrewAI Multi-Agent tests
-test-flow2:
-	@echo "=== Flow 2: CrewAI Tests ==="
-	@cargo test -p agent --lib -- crew:: 2>&1 | grep -E "^test crew::" | head -20 || true
-	@echo "... (more tests)"
-	@echo ""
-	@cargo test -p agent --lib crew 2>&1 | tail -1
-
-# Agent crate tests
+# Single Agent tests (builder, prompts, rag_agent, sales_agent)
 test-agent:
-	cargo test -p agent --lib
+	@echo "=== Single Agent Tests ==="
+	cargo test -p agent --lib -- --skip crew::
 
-# Crew module tests only
+# CrewAI Multi-Agent tests
 test-crew:
+	@echo "=== CrewAI Tests ==="
 	cargo test -p agent --lib crew
 
 # Show test count by module
 test-count:
 	@echo "=== Test Count by Module ==="
 	@echo ""
-	@echo "Flow 1 (Single Agent):"
+	@echo "Single Agent:"
 	@echo -n "  builder:      " && cargo test -p agent --lib 2>&1 | grep -c "^test builder::" || echo "0"
 	@echo -n "  prompts:      " && cargo test -p agent --lib 2>&1 | grep -c "^test prompts::" || echo "0"
 	@echo -n "  rag_agent:    " && cargo test -p agent --lib 2>&1 | grep -c "^test rag_agent::" || echo "0"
 	@echo -n "  sales_agent:  " && cargo test -p agent --lib 2>&1 | grep -c "^test sales_agent::" || echo "0"
 	@echo ""
-	@echo "Flow 2 (CrewAI):"
+	@echo "CrewAI:"
 	@echo -n "  crew::agent:       " && cargo test -p agent --lib 2>&1 | grep -c "^test crew::agent::" || echo "0"
 	@echo -n "  crew::task:        " && cargo test -p agent --lib 2>&1 | grep -c "^test crew::task::" || echo "0"
 	@echo -n "  crew::crew:        " && cargo test -p agent --lib 2>&1 | grep -c "^test crew::crew::" || echo "0"
