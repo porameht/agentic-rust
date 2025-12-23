@@ -2,31 +2,65 @@
 //!
 //! This crate provides two distinct approaches for building AI agents:
 //!
-//! # Flow 1: Single Agent with RAG (Queue-based, Scalable)
+//! # Flow 1: ReAct Agent with RAG (Queue-based, Scalable)
 //!
-//! API-driven single-agent with queue-based processing for production scale.
-//! Best for: Chatbots, Q&A systems, document search, knowledge bases.
+//! ReAct (Reasoning + Acting) agent with queue-based processing for production scale.
+//! Uses iterative reasoning loop: Think → Act → Observe → Repeat until done.
+//! Best for: Complex Q&A, tool-using agents, research assistants.
 //!
 //! ```text
-//! ┌──────────┐    ┌─────────┐    ┌────────┐    ┌───────────┐
-//! │   API    │───▶│  Queue  │───▶│ Worker │───▶│ RagAgent  │
-//! │ Request  │    │ (Redis) │    │        │    │  .chat()  │
-//! └──────────┘    └─────────┘    └────────┘    └───────────┘
+//! ┌──────────┐    ┌─────────┐    ┌────────┐    ┌─────────────────────────┐
+//! │   API    │───▶│  Queue  │───▶│ Worker │───▶│     ReActAgent          │
+//! │ Request  │    │ (Redis) │    │        │    │                         │
+//! └──────────┘    └─────────┘    └────────┘    │  ┌─────────────────────┐│
+//!                                              │  │ REASONING LOOP      ││
+//!                                              │  │ ┌─────┐             ││
+//!                                              │  │ │Think│→ Decide     ││
+//!                                              │  │ └──┬──┘             ││
+//!                                              │  │    ↓                ││
+//!                                              │  │ ┌─────┐   ┌───────┐││
+//!                                              │  │ │ Act │──▶│Observe│││
+//!                                              │  │ └─────┘   └───┬───┘││
+//!                                              │  │       ↑       │    ││
+//!                                              │  │       └───────┘    ││
+//!                                              │  └─────────────────────┘│
+//!                                              └─────────────────────────┘
 //! ```
+//!
+//! ```rust,ignore
+//! use agent::{ReActAgent, ReActConfig};
+//! use agent::tools::SearchTool;
+//!
+//! // Build ReAct agent with tools
+//! let config = ReActConfig::builder()
+//!     .model("gpt-4")
+//!     .max_iterations(10)
+//!     .temperature(0.3)
+//!     .use_rag(true)
+//!     .build();
+//!
+//! let mut agent = ReActAgent::new(config)
+//!     .with_tool(SearchTool::new())
+//!     .with_tool(CalculatorTool::new());
+//!
+//! // Run with reasoning trace
+//! let response = agent.run("What is the population of Tokyo?").await?;
+//! println!("Answer: {}", response.final_answer);
+//! println!("Steps: {:?}", response.trace);
+//! ```
+//!
+//! ## Legacy: Simple RAG Agent (without reasoning loop)
 //!
 //! ```rust,ignore
 //! use agent::{AgentBuilder, RagAgent};
 //! use rag_core::Retriever;
 //!
-//! // Build agent configuration
 //! let config = AgentBuilder::new("gpt-4")
 //!     .preamble("You are a helpful assistant.")
 //!     .temperature(0.7)
 //!     .top_k_documents(5)
-//!     .tool("search")
 //!     .build();
 //!
-//! // Create RAG agent with retriever
 //! let agent = RagAgent::new(config, retriever);
 //! let response = agent.chat("What is Rust?").await?;
 //! ```
@@ -119,6 +153,8 @@
 pub mod builder;
 pub mod prompts;
 pub mod rag_agent;
+pub mod react_agent;
+pub mod rig_integration;
 pub mod sales_agent;
 pub mod tools;
 
@@ -126,6 +162,18 @@ pub mod tools;
 pub use builder::AgentBuilder;
 pub use rag_agent::RagAgent;
 pub use sales_agent::SalesAgentBuilder;
+
+// ReAct agent exports (Flow 1 with reasoning loop)
+pub use react_agent::{
+    ActionRecord, ReActAgent, ReActConfig, ReActConfigBuilder, ReActError, ReActResponse,
+    ReActState, ReActStep, ThoughtAction,
+};
+
+// LLM integration exports
+pub use rig_integration::{
+    ChatMessage, CompletionClient, FinishReason, LlmConfig, LlmError, LlmResponse, MessageRole,
+    Provider, RigLlmClient, TokenUsage, ToolCall, ToolCallResponse, ToolCallingClient,
+};
 
 // ============================================================================
 // FLOW 2: MULTI-AGENT ORCHESTRATION (CrewAI-style)
